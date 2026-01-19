@@ -19,16 +19,22 @@ export function Logo({ size = 'md', showText = true }: LogoProps) {
     lg: 'text-3xl',
   };
 
+  const paddings = {
+    sm: 'p-1.5',
+    md: 'p-2',
+    lg: 'p-3',
+  };
+
   return (
     <Link to="/" className="flex items-center gap-2 group">
       <div className="relative">
-        <div className="absolute inset-0 gradient-sunset rounded-full blur-lg opacity-50 group-hover:opacity-75 transition-opacity" />
-        <div className="relative gradient-sunset p-2 rounded-full">
+        <div className="absolute inset-0 bg-primary rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity" />
+        <div className={`relative bg-primary ${paddings[size]} rounded-full`}>
           <Compass className={`${sizeClasses[size]} text-primary-foreground`} />
         </div>
       </div>
       {showText && (
-        <span className={`font-display font-bold ${textSizes[size]} text-gradient-sunset`}>
+        <span className={`font-display font-bold ${textSizes[size]} text-primary`}>
           ROAMEO
         </span>
       )}

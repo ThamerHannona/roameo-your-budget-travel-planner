@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, Calendar, DollarSign, Users, ArrowRight, Sparkles } from 'lucide-react';
+import { Users, ArrowRight, Sparkles, AlertCircle } from 'lucide-react';
 import { Logo } from '@/components/Logo';
+import { CityAutocomplete } from '@/components/CityAutocomplete';
+import { DateRangePicker } from '@/components/DateRangePicker';
+import { BudgetInput } from '@/components/BudgetInput';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTravel } from '@/context/TravelContext';
-import { TravelSearch } from '@/types/travel';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -24,38 +26,90 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
+interface FormErrors {
+  origin?: string;
+  destination?: string;
+  dates?: string;
+  budget?: string;
+}
+
 const Index = () => {
   const navigate = useNavigate();
   const { setSearch } = useTravel();
   
-  const [formData, setFormData] = useState<TravelSearch>({
-    origin: '',
-    destination: '',
-    departureDate: '',
-    returnDate: '',
-    budget: 2000,
-    travelers: 1,
-  });
+  const [origin, setOrigin] = useState('');
+  const [destination, setDestination] = useState('');
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+  const [budget, setBudget] = useState(2000);
+  const [travelers, setTravelers] = useState(1);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!origin.trim()) {
+      newErrors.origin = 'Please enter your departure city';
+    }
+
+    if (!destination.trim()) {
+      newErrors.destination = 'Please enter your destination';
+    }
+
+    if (origin.trim() && destination.trim() && 
+        origin.trim().toLowerCase() === destination.trim().toLowerCase()) {
+      newErrors.destination = 'Destination must be different from origin';
+    }
+
+    if (!startDate || !endDate) {
+      newErrors.dates = 'Please select your travel dates';
+    }
+
+    if (budget < 100) {
+      newErrors.budget = 'Minimum budget is $100';
+    }
+
+    if (budget > 100000) {
+      newErrors.budget = 'Maximum budget is $100,000';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSearch(formData);
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    setSearch({
+      origin,
+      destination,
+      departureDate: startDate!.toISOString().split('T')[0],
+      returnDate: endDate!.toISOString().split('T')[0],
+      budget,
+      travelers,
+    });
+
     navigate('/results');
   };
 
-  const updateField = (field: keyof TravelSearch, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const isFormValid = formData.origin && formData.destination && 
-    formData.departureDate && formData.returnDate && formData.budget > 0;
+  const hasErrors = Object.keys(errors).length > 0;
 
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted" />
-      <div className="absolute top-0 right-0 w-1/2 h-1/2 gradient-sunset opacity-10 blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-1/3 h-1/3 gradient-ocean opacity-10 blur-3xl" />
+      <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-primary/5 blur-3xl rounded-full" />
+      <div className="absolute bottom-0 left-0 w-1/3 h-1/3 bg-primary/5 blur-3xl rounded-full" />
       
       {/* Content */}
       <div className="relative z-10">
@@ -65,24 +119,24 @@ const Index = () => {
         </header>
 
         {/* Hero Section */}
-        <main className="container mx-auto px-4 py-8 lg:py-16">
+        <main className="container mx-auto px-4 py-6 md:py-12 lg:py-16">
           <motion.div
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="max-w-4xl mx-auto"
+            className="max-w-2xl mx-auto"
           >
             {/* Hero Text */}
-            <motion.div variants={itemVariants} className="text-center mb-12">
+            <motion.div variants={itemVariants} className="text-center mb-8 md:mb-12">
               <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-6">
                 <Sparkles className="h-4 w-4" />
                 Budget-first travel planning
               </div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold text-foreground mb-4">
-                Travel smarter,{' '}
-                <span className="text-gradient-sunset">not harder</span>
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-foreground mb-4">
+                Find trips that fit{' '}
+                <span className="text-primary">your budget</span>
               </h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              <p className="text-base md:text-lg text-muted-foreground max-w-xl mx-auto">
                 Set your budget first, then discover flights and hotels that fit. 
                 Compare side-by-side and build your perfect trip.
               </p>
@@ -92,131 +146,132 @@ const Index = () => {
             <motion.form
               variants={itemVariants}
               onSubmit={handleSubmit}
-              className="bg-card rounded-2xl shadow-xl border border-border p-6 md:p-8"
+              className="bg-card rounded-2xl shadow-xl border border-border p-5 md:p-8"
             >
+              {/* Error Summary */}
+              {hasErrors && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3"
+                >
+                  <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-destructive">Please fix the following errors:</p>
+                    <ul className="text-sm text-destructive/80 mt-1 space-y-0.5">
+                      {Object.values(errors).map((error, i) => (
+                        <li key={i}>• {error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </motion.div>
+              )}
+
               {/* Budget Input - Prominent */}
               <div className="mb-8">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="gradient-sunset p-2 rounded-lg">
-                    <DollarSign className="h-5 w-5 text-primary-foreground" />
+                <BudgetInput
+                  value={budget}
+                  onChange={(val) => {
+                    setBudget(val);
+                    if (errors.budget) setErrors(prev => ({ ...prev, budget: undefined }));
+                  }}
+                  error={errors.budget}
+                />
+              </div>
+
+              {/* Origin & Destination */}
+              <div className="grid md:grid-cols-2 gap-4 md:gap-6 mb-6">
+                <CityAutocomplete
+                  value={origin}
+                  onChange={(val) => {
+                    setOrigin(val);
+                    if (errors.origin) setErrors(prev => ({ ...prev, origin: undefined }));
+                  }}
+                  label="From"
+                  placeholder="Los Angeles, CA"
+                  error={errors.origin}
+                />
+
+                <CityAutocomplete
+                  value={destination}
+                  onChange={(val) => {
+                    setDestination(val);
+                    if (errors.destination) setErrors(prev => ({ ...prev, destination: undefined }));
+                  }}
+                  label="To"
+                  placeholder="New York, NY"
+                  error={errors.destination}
+                />
+              </div>
+
+              {/* Date Range & Travelers */}
+              <div className="grid md:grid-cols-2 gap-4 md:gap-6 mb-8">
+                <DateRangePicker
+                  startDate={startDate}
+                  endDate={endDate}
+                  onStartDateChange={(date) => {
+                    setStartDate(date);
+                    if (errors.dates) setErrors(prev => ({ ...prev, dates: undefined }));
+                  }}
+                  onEndDateChange={(date) => {
+                    setEndDate(date);
+                    if (errors.dates) setErrors(prev => ({ ...prev, dates: undefined }));
+                  }}
+                  error={errors.dates}
+                />
+
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-medium text-foreground">Travelers</Label>
                   </div>
-                  <Label className="text-lg font-display font-semibold text-foreground">
-                    What's your total budget?
-                  </Label>
-                </div>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-primary">$</span>
                   <Input
                     type="number"
-                    value={formData.budget}
-                    onChange={(e) => updateField('budget', parseInt(e.target.value) || 0)}
-                    className="text-3xl font-display font-bold h-16 pl-10 pr-4 text-foreground"
-                    placeholder="2000"
-                    min={100}
-                  />
-                </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  We'll find flights and hotels that fit within your budget
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                {/* Origin */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <Label className="font-medium text-foreground">From</Label>
-                  </div>
-                  <Input
-                    value={formData.origin}
-                    onChange={(e) => updateField('origin', e.target.value)}
-                    placeholder="Los Angeles, CA"
+                    value={travelers}
+                    onChange={(e) => setTravelers(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
                     className="h-12"
+                    min={1}
+                    max={10}
                   />
                 </div>
-
-                {/* Destination */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <MapPin className="h-4 w-4 text-accent" />
-                    <Label className="font-medium text-foreground">To</Label>
-                  </div>
-                  <Input
-                    value={formData.destination}
-                    onChange={(e) => updateField('destination', e.target.value)}
-                    placeholder="New York, NY"
-                    className="h-12"
-                  />
-                </div>
-
-                {/* Departure Date */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    <Label className="font-medium text-foreground">Departure</Label>
-                  </div>
-                  <Input
-                    type="date"
-                    value={formData.departureDate}
-                    onChange={(e) => updateField('departureDate', e.target.value)}
-                    className="h-12"
-                  />
-                </div>
-
-                {/* Return Date */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="h-4 w-4 text-accent" />
-                    <Label className="font-medium text-foreground">Return</Label>
-                  </div>
-                  <Input
-                    type="date"
-                    value={formData.returnDate}
-                    onChange={(e) => updateField('returnDate', e.target.value)}
-                    className="h-12"
-                  />
-                </div>
-              </div>
-
-              {/* Travelers */}
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4 text-primary" />
-                  <Label className="font-medium text-foreground">Travelers</Label>
-                </div>
-                <Input
-                  type="number"
-                  value={formData.travelers}
-                  onChange={(e) => updateField('travelers', parseInt(e.target.value) || 1)}
-                  className="h-12 max-w-32"
-                  min={1}
-                  max={10}
-                />
               </div>
 
               {/* Submit Button */}
               <Button
                 type="submit"
                 size="lg"
-                disabled={!isFormValid}
-                className="w-full h-14 text-lg font-display font-semibold gradient-sunset hover:opacity-90 transition-opacity disabled:opacity-50"
+                disabled={isSubmitting}
+                className="w-full h-14 text-lg font-display font-semibold bg-primary hover:bg-primary/90 text-primary-foreground transition-all"
               >
-                Find my perfect trip
-                <ArrowRight className="ml-2 h-5 w-5" />
+                {isSubmitting ? (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                      className="mr-2 h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
+                    />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    Find Trips
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </>
+                )}
               </Button>
             </motion.form>
 
             {/* Features */}
             <motion.div
               variants={itemVariants}
-              className="grid md:grid-cols-3 gap-6 mt-12"
+              className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mt-10"
             >
               {[
                 { title: 'Budget First', desc: 'See only options within your budget' },
                 { title: 'Compare Easy', desc: 'Side-by-side flight & hotel comparison' },
                 { title: 'Book Direct', desc: 'Links to airlines & hotels for best rates' },
               ].map((feature, i) => (
-                <div key={i} className="text-center p-4">
+                <div key={i} className="text-center p-4 bg-card/50 rounded-xl border border-border/50">
                   <h3 className="font-display font-semibold text-foreground mb-1">{feature.title}</h3>
                   <p className="text-sm text-muted-foreground">{feature.desc}</p>
                 </div>
