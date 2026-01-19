@@ -6,6 +6,7 @@ import { Logo } from '@/components/Logo';
 import { CityAutocomplete } from '@/components/CityAutocomplete';
 import { DateRangePicker } from '@/components/DateRangePicker';
 import { BudgetInput } from '@/components/BudgetInput';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -114,8 +115,9 @@ const Index = () => {
       {/* Content */}
       <div className="relative z-10">
         {/* Header */}
-        <header className="container mx-auto px-4 py-6">
+        <header className="container mx-auto px-4 py-6 flex items-center justify-between">
           <Logo size="md" />
+          <ThemeToggle />
         </header>
 
         {/* Hero Section */}

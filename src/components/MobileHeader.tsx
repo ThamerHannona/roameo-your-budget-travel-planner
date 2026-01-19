@@ -4,6 +4,7 @@ import { Menu, X, Plane, MapPin, Calendar, CheckCircle } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { cn } from '@/lib/utils';
 
 interface MobileHeaderProps {
@@ -76,11 +77,10 @@ export function MobileHeader({ rightContent }: MobileHeaderProps) {
         <Logo size="sm" />
       </div>
       
-      {rightContent && (
-        <div className="flex items-center gap-2">
-          {rightContent}
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+        {rightContent}
+      </div>
     </div>
   );
 }
