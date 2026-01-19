@@ -32,7 +32,8 @@ const Results = () => {
     selectOutboundFlight, 
     selectReturnFlight, 
     selectHotel,
-    getTotalCost 
+    getTotalCost,
+    getRemainingBudget
   } = useTravel();
 
   useEffect(() => {
@@ -157,15 +158,20 @@ const Results = () => {
                         animate="visible"
                         className="space-y-3"
                       >
-                        {budgetFlights.map((flight) => (
-                          <FlightCard
-                            key={flight.id}
-                            flight={flight}
-                            type="outbound"
-                            isSelected={selections.outboundFlight?.id === flight.id}
-                            onSelect={(f) => handleFlightSelect(f, 'outbound')}
-                          />
-                        ))}
+                        {budgetFlights.map((flight) => {
+                          const isAdded = selections.outboundFlight?.id === flight.id;
+                          const wouldExceedBudget = getRemainingBudget() - flight.price < 0;
+                          return (
+                            <FlightCard
+                              key={flight.id}
+                              flight={flight}
+                              type="outbound"
+                              isAdded={isAdded}
+                              onAdd={(f) => handleFlightSelect(f, 'outbound')}
+                              budgetExceeded={wouldExceedBudget}
+                            />
+                          );
+                        })}
                       </motion.div>
                     )}
                   </ScrollArea>
@@ -193,15 +199,20 @@ const Results = () => {
                         animate="visible"
                         className="space-y-3"
                       >
-                        {budgetReturnFlights.map((flight) => (
-                          <FlightCard
-                            key={flight.id}
-                            flight={flight}
-                            type="return"
-                            isSelected={selections.returnFlight?.id === flight.id}
-                            onSelect={(f) => handleFlightSelect(f, 'return')}
-                          />
-                        ))}
+                        {budgetReturnFlights.map((flight) => {
+                          const isAdded = selections.returnFlight?.id === flight.id;
+                          const wouldExceedBudget = getRemainingBudget() - flight.price < 0;
+                          return (
+                            <FlightCard
+                              key={flight.id}
+                              flight={flight}
+                              type="return"
+                              isAdded={isAdded}
+                              onAdd={(f) => handleFlightSelect(f, 'return')}
+                              budgetExceeded={wouldExceedBudget}
+                            />
+                          );
+                        })}
                       </motion.div>
                     )}
                   </ScrollArea>
