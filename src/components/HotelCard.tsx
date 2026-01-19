@@ -1,33 +1,36 @@
 import { motion } from 'framer-motion';
-import { Star, MapPin, Wifi, Car, Coffee, Check } from 'lucide-react';
+import { Star, MapPin, Wifi, Car, Waves, Check } from 'lucide-react';
 import { Hotel } from '@/types/travel';
 import { Button } from '@/components/ui/button';
 
 interface HotelCardProps {
   hotel: Hotel;
-  isSelected: boolean;
-  onSelect: (hotel: Hotel) => void;
+  isAdded: boolean;
+  onAdd: (hotel: Hotel) => void;
+  budgetExceeded: boolean;
   nights: number;
 }
 
 const amenityIcons: Record<string, React.ReactNode> = {
   wifi: <Wifi className="h-3 w-3" />,
   parking: <Car className="h-3 w-3" />,
-  breakfast: <Coffee className="h-3 w-3" />,
+  pool: <Waves className="h-3 w-3" />,
 };
 
-export function HotelCard({ hotel, isSelected, onSelect, nights }: HotelCardProps) {
+export function HotelCard({ hotel, isAdded, onAdd, budgetExceeded, nights }: HotelCardProps) {
+  const isDisabled = budgetExceeded && !isAdded;
+  
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -2 }}
+      whileHover={{ y: -2, boxShadow: '0 10px 30px -10px hsl(var(--primary) / 0.2)' }}
       className={`relative bg-card rounded-xl overflow-hidden shadow-md border-2 transition-colors ${
-        isSelected ? 'border-primary shadow-glow' : 'border-transparent hover:border-primary/30'
-      }`}
+        isAdded ? 'border-primary shadow-glow' : 'border-transparent hover:border-primary/30'
+      } ${isDisabled ? 'opacity-60' : ''}`}
     >
-      {isSelected && (
+      {isAdded && (
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -39,7 +42,7 @@ export function HotelCard({ hotel, isSelected, onSelect, nights }: HotelCardProp
 
       <div className="relative h-40 overflow-hidden">
         <img
-          src={hotel.image}
+          src={hotel.image || 'https://placehold.co/400x300'}
           alt={hotel.name}
           className="w-full h-full object-cover"
         />
@@ -63,7 +66,7 @@ export function HotelCard({ hotel, isSelected, onSelect, nights }: HotelCardProp
           <span>{hotel.location}</span>
         </div>
 
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-2 mb-4 flex-wrap">
           {hotel.amenities.slice(0, 3).map((amenity) => (
             <div
               key={amenity}
@@ -83,10 +86,12 @@ export function HotelCard({ hotel, isSelected, onSelect, nights }: HotelCardProp
             </p>
           </div>
           <Button
-            variant={isSelected ? "secondary" : "default"}
-            onClick={() => onSelect(hotel)}
+            variant={isAdded ? "secondary" : "default"}
+            onClick={() => onAdd(hotel)}
+            disabled={isDisabled}
+            className={isDisabled ? 'cursor-not-allowed' : ''}
           >
-            {isSelected ? 'Selected' : 'Select'}
+            {isAdded ? 'Remove' : 'Add to Trip'}
           </Button>
         </div>
       </div>

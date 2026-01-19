@@ -255,15 +255,20 @@ const Results = () => {
                       animate="visible"
                       className="grid gap-4"
                     >
-                      {budgetHotels.map((hotel) => (
-                        <HotelCard
-                          key={hotel.id}
-                          hotel={hotel}
-                          nights={nights}
-                          isSelected={selections.hotel?.id === hotel.id}
-                          onSelect={handleHotelSelect}
-                        />
-                      ))}
+                      {budgetHotels.map((hotel) => {
+                        const isAdded = selections.hotel?.id === hotel.id;
+                        const wouldExceedBudget = getRemainingBudget() - hotel.totalPrice < 0;
+                        return (
+                          <HotelCard
+                            key={hotel.id}
+                            hotel={hotel}
+                            nights={nights}
+                            isAdded={isAdded}
+                            onAdd={handleHotelSelect}
+                            budgetExceeded={wouldExceedBudget}
+                          />
+                        );
+                      })}
                     </motion.div>
                   )}
                 </ScrollArea>
