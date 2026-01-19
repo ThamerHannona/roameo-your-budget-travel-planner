@@ -1,5 +1,8 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { TravelSearch, SelectedItems, Flight, Hotel } from '@/types/travel';
+
+const STORAGE_KEY_SEARCH = 'travel_search';
+const STORAGE_KEY_SELECTIONS = 'travel_selections';
 
 interface TravelContextType {
   search: TravelSearch | null;
@@ -19,6 +22,9 @@ interface TravelContextType {
   getRemainingBudget: () => number;
   calculateRemaining: () => number;
   resetSelections: () => void;
+  clearAll: () => void;
+  hasSearch: () => boolean;
+  hasSelections: () => boolean;
 }
 
 const TravelContext = createContext<TravelContextType | undefined>(undefined);
@@ -31,9 +37,44 @@ const initialSelections: SelectedItems = {
   hotels: [],
 };
 
+// Helper to safely parse JSON from sessionStorage
+function getStoredData<T>(key: string, fallback: T): T {
+  try {
+    const stored = sessionStorage.getItem(key);
+    if (stored) {
+      return JSON.parse(stored) as T;
+    }
+  } catch (e) {
+    console.warn(`Failed to parse ${key} from sessionStorage`, e);
+  }
+  return fallback;
+}
+
 export function TravelProvider({ children }: { children: ReactNode }) {
-  const [search, setSearch] = useState<TravelSearch | null>(null);
-  const [selections, setSelections] = useState<SelectedItems>(initialSelections);
+  const [search, setSearchState] = useState<TravelSearch | null>(() => 
+    getStoredData<TravelSearch | null>(STORAGE_KEY_SEARCH, null)
+  );
+  const [selections, setSelections] = useState<SelectedItems>(() => 
+    getStoredData<SelectedItems>(STORAGE_KEY_SELECTIONS, initialSelections)
+  );
+
+  // Persist search to sessionStorage
+  useEffect(() => {
+    if (search) {
+      sessionStorage.setItem(STORAGE_KEY_SEARCH, JSON.stringify(search));
+    } else {
+      sessionStorage.removeItem(STORAGE_KEY_SEARCH);
+    }
+  }, [search]);
+
+  // Persist selections to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem(STORAGE_KEY_SELECTIONS, JSON.stringify(selections));
+  }, [selections]);
+
+  const setSearch = useCallback((newSearch: TravelSearch) => {
+    setSearchState(newSearch);
+  }, []);
 
   const selectOutboundFlight = useCallback((flight: Flight | null) => {
     setSelections(prev => ({ ...prev, outboundFlight: flight }));
@@ -100,6 +141,27 @@ export function TravelProvider({ children }: { children: ReactNode }) {
     setSelections(initialSelections);
   }, []);
 
+  const clearAll = useCallback(() => {
+    setSearchState(null);
+    setSelections(initialSelections);
+    sessionStorage.removeItem(STORAGE_KEY_SEARCH);
+    sessionStorage.removeItem(STORAGE_KEY_SELECTIONS);
+  }, []);
+
+  const hasSearch = useCallback(() => {
+    return search !== null;
+  }, [search]);
+
+  const hasSelections = useCallback(() => {
+    return !!(
+      selections.outboundFlight ||
+      selections.returnFlight ||
+      selections.hotel ||
+      selections.flights.length > 0 ||
+      selections.hotels.length > 0
+    );
+  }, [selections]);
+
   return (
     <TravelContext.Provider
       value={{
@@ -117,6 +179,9 @@ export function TravelProvider({ children }: { children: ReactNode }) {
         getRemainingBudget,
         calculateRemaining,
         resetSelections,
+        clearAll,
+        hasSearch,
+        hasSelections,
       }}
     >
       {children}

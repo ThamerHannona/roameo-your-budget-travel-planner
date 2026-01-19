@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 const FinalItinerary = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { search, selections, getTotalCost, resetSelections } = useTravel();
+  const { search, selections, getTotalCost, clearAll } = useTravel();
 
   useEffect(() => {
     if (!search || !selections.outboundFlight || !selections.returnFlight || !selections.hotel) {
@@ -42,7 +42,7 @@ const FinalItinerary = () => {
   };
 
   const handleNewTrip = () => {
-    resetSelections();
+    clearAll();
     navigate('/');
   };
 
