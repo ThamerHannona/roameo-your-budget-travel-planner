@@ -41,6 +41,8 @@ export interface SelectedItems {
   outboundFlight: Flight | null;
   returnFlight: Flight | null;
   hotel: Hotel | null;
+  flights: Flight[];
+  hotels: Hotel[];
 }
 
 export interface Itinerary {
