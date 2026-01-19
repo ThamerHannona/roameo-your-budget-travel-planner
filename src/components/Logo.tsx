@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Compass } from 'lucide-react';
+import logoIcon from '@/assets/logo-icon.jpeg';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -7,10 +7,10 @@ interface LogoProps {
 }
 
 export function Logo({ size = 'md', showText = true }: LogoProps) {
-  const sizeClasses = {
-    sm: 'h-6 w-6',
-    md: 'h-8 w-8',
-    lg: 'h-12 w-12',
+  const iconSizeClasses = {
+    sm: 'h-7 w-7',
+    md: 'h-9 w-9',
+    lg: 'h-14 w-14',
   };
 
   const textSizeClasses = {
@@ -20,15 +20,22 @@ export function Logo({ size = 'md', showText = true }: LogoProps) {
   };
 
   return (
-    <Link to="/" className="flex items-center gap-2 group">
-      <div className="relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-accent to-destructive rounded-full blur-sm opacity-60 group-hover:opacity-80 transition-opacity" />
-        <div className="relative gradient-sunset rounded-full p-1.5">
-          <Compass className={`${sizeClasses[size]} text-white`} />
-        </div>
-      </div>
+    <Link to="/" className="flex items-center gap-2.5 group">
+      <img 
+        src={logoIcon} 
+        alt="ROAMEO" 
+        className={`${iconSizeClasses[size]} rounded-full object-cover transition-transform group-hover:scale-105`}
+      />
       {showText && (
-        <span className={`${textSizeClasses[size]} font-display font-bold text-gradient-sunset`}>
+        <span 
+          className={`${textSizeClasses[size]} font-display font-bold tracking-wider`}
+          style={{
+            background: 'linear-gradient(135deg, #a78bfa 0%, #e879f9 50%, #38bdf8 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}
+        >
           ROAMEO
         </span>
       )}
