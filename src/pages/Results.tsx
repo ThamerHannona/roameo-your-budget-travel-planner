@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plane, Building2, ArrowRight } from 'lucide-react';
@@ -6,8 +6,11 @@ import { Logo } from '@/components/Logo';
 import { BudgetTracker } from '@/components/BudgetTracker';
 import { FlightCard } from '@/components/FlightCard';
 import { HotelCard } from '@/components/HotelCard';
+import { LoadingCard } from '@/components/LoadingCard';
+import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTravel } from '@/context/TravelContext';
 import { mockFlights, mockReturnFlights, mockHotels } from '@/data/mockData';
 import { Flight, Hotel } from '@/types/travel';
@@ -22,6 +25,7 @@ const containerVariants = {
 
 const Results = () => {
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
   const { 
     search, 
     selections, 
@@ -36,6 +40,12 @@ const Results = () => {
       navigate('/');
     }
   }, [search, navigate]);
+
+  // Simulate loading state for API calls
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (!search) return null;
 
@@ -107,121 +117,149 @@ const Results = () => {
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - Two Column Layout */}
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="flights" className="space-y-6">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
-            <TabsTrigger value="flights" className="flex items-center gap-2">
-              <Plane className="h-4 w-4" />
-              Flights
-              {(selections.outboundFlight || selections.returnFlight) && (
-                <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
-                  {(selections.outboundFlight ? 1 : 0) + (selections.returnFlight ? 1 : 0)}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="hotels" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Hotels
-              {selections.hotel && (
-                <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">1</span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+        <div className="grid lg:grid-cols-2 gap-8">
+          {/* Flights Column - Left */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Plane className="h-5 w-5 text-primary" />
+                  Flights
+                  {(selections.outboundFlight || selections.returnFlight) && (
+                    <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full ml-auto">
+                      {(selections.outboundFlight ? 1 : 0) + (selections.returnFlight ? 1 : 0)}/2 selected
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Outbound Flights */}
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs">OUTBOUND</span>
+                    {search.origin} → {search.destination}
+                  </h3>
+                  <ScrollArea className="h-[300px] pr-4">
+                    {isLoading ? (
+                      <div className="space-y-3">
+                        {[1, 2, 3].map((i) => (
+                          <LoadingCard key={i} type="flight" />
+                        ))}
+                      </div>
+                    ) : budgetFlights.length === 0 ? (
+                      <EmptyState type="flight" />
+                    ) : (
+                      <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="space-y-3"
+                      >
+                        {budgetFlights.map((flight) => (
+                          <FlightCard
+                            key={flight.id}
+                            flight={flight}
+                            type="outbound"
+                            isSelected={selections.outboundFlight?.id === flight.id}
+                            onSelect={(f) => handleFlightSelect(f, 'outbound')}
+                          />
+                        ))}
+                      </motion.div>
+                    )}
+                  </ScrollArea>
+                </div>
 
-          <TabsContent value="flights" className="space-y-8">
-            {/* Outbound Flights */}
-            <section>
-              <h2 className="text-xl font-display font-bold text-foreground mb-4 flex items-center gap-2">
-                <Plane className="h-5 w-5 text-primary" />
-                Outbound Flights
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({search.origin} → {search.destination})
-                </span>
-              </h2>
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="grid md:grid-cols-2 gap-4"
-              >
-                {budgetFlights.map((flight) => (
-                  <FlightCard
-                    key={flight.id}
-                    flight={flight}
-                    type="outbound"
-                    isSelected={selections.outboundFlight?.id === flight.id}
-                    onSelect={(f) => handleFlightSelect(f, 'outbound')}
-                  />
-                ))}
-              </motion.div>
-              {budgetFlights.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">No flights found within your budget.</p>
-              )}
-            </section>
+                {/* Return Flights */}
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs">RETURN</span>
+                    {search.destination} → {search.origin}
+                  </h3>
+                  <ScrollArea className="h-[300px] pr-4">
+                    {isLoading ? (
+                      <div className="space-y-3">
+                        {[1, 2, 3].map((i) => (
+                          <LoadingCard key={i} type="flight" />
+                        ))}
+                      </div>
+                    ) : budgetReturnFlights.length === 0 ? (
+                      <EmptyState type="flight" message="No return flights found within your budget" />
+                    ) : (
+                      <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="space-y-3"
+                      >
+                        {budgetReturnFlights.map((flight) => (
+                          <FlightCard
+                            key={flight.id}
+                            flight={flight}
+                            type="return"
+                            isSelected={selections.returnFlight?.id === flight.id}
+                            onSelect={(f) => handleFlightSelect(f, 'return')}
+                          />
+                        ))}
+                      </motion.div>
+                    )}
+                  </ScrollArea>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-            {/* Return Flights */}
-            <section>
-              <h2 className="text-xl font-display font-bold text-foreground mb-4 flex items-center gap-2">
-                <Plane className="h-5 w-5 text-primary rotate-180" />
-                Return Flights
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({search.destination} → {search.origin})
-                </span>
-              </h2>
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="grid md:grid-cols-2 gap-4"
-              >
-                {budgetReturnFlights.map((flight) => (
-                  <FlightCard
-                    key={flight.id}
-                    flight={flight}
-                    type="return"
-                    isSelected={selections.returnFlight?.id === flight.id}
-                    onSelect={(f) => handleFlightSelect(f, 'return')}
-                  />
-                ))}
-              </motion.div>
-              {budgetReturnFlights.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">No return flights found within your budget.</p>
-              )}
-            </section>
-          </TabsContent>
-
-          <TabsContent value="hotels">
-            <section>
-              <h2 className="text-xl font-display font-bold text-foreground mb-4 flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                Hotels in {search.destination}
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({nights} nights)
-                </span>
-              </h2>
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
-              >
-                {budgetHotels.map((hotel) => (
-                  <HotelCard
-                    key={hotel.id}
-                    hotel={hotel}
-                    nights={nights}
-                    isSelected={selections.hotel?.id === hotel.id}
-                    onSelect={handleHotelSelect}
-                  />
-                ))}
-              </motion.div>
-              {budgetHotels.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">No hotels found within your budget.</p>
-              )}
-            </section>
-          </TabsContent>
-        </Tabs>
+          {/* Hotels Column - Right */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  Hotels in {search.destination}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    ({nights} nights)
+                  </span>
+                  {selections.hotel && (
+                    <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full ml-auto">
+                      1 selected
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[660px] pr-4">
+                  {isLoading ? (
+                    <div className="grid gap-4">
+                      {[1, 2, 3, 4].map((i) => (
+                        <LoadingCard key={i} type="hotel" />
+                      ))}
+                    </div>
+                  ) : budgetHotels.length === 0 ? (
+                    <EmptyState type="hotel" />
+                  ) : (
+                    <motion.div
+                      variants={containerVariants}
+                      initial="hidden"
+                      animate="visible"
+                      className="grid gap-4"
+                    >
+                      {budgetHotels.map((hotel) => (
+                        <HotelCard
+                          key={hotel.id}
+                          hotel={hotel}
+                          nights={nights}
+                          isSelected={selections.hotel?.id === hotel.id}
+                          onSelect={handleHotelSelect}
+                        />
+                      ))}
+                    </motion.div>
+                  )}
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </main>
 
       {/* Floating Summary */}
