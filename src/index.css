@@ -19,8 +19,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 30% 15%;
 
-    /* Primary blue */
-    --primary: 224 76% 48%;
+    /* Primary blue #2563EB */
+    --primary: 217 91% 53%;
     --primary-foreground: 0 0% 100%;
 
     /* Deep navy secondary */
@@ -35,26 +35,27 @@
     --accent: 38 95% 55%;
     --accent-foreground: 220 30% 15%;
 
-    /* Success green for budget */
-    --success: 158 64% 42%;
+    /* Success green #10B981 */
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning amber */
-    --warning: 38 92% 50%;
+    /* Warning amber #F59E0B */
+    --warning: 43 96% 50%;
     --warning-foreground: 220 30% 15%;
 
-    --destructive: 0 72% 55%;
+    /* Danger/Destructive #EF4444 */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 35 20% 88%;
     --input: 35 20% 88%;
-    --ring: 16 85% 60%;
+    --ring: 217 91% 53%;
 
     --radius: 0.75rem;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(224 76% 48%) 0%, hsl(200 80% 50%) 100%);
-    --gradient-sunset: linear-gradient(135deg, hsl(16 85% 60%) 0%, hsl(38 95% 55%) 50%, hsl(350 80% 55%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 53%) 0%, hsl(200 80% 50%) 100%);
+    --gradient-sunset: linear-gradient(135deg, hsl(16 85% 60%) 0%, hsl(43 96% 50%) 50%, hsl(350 80% 55%) 100%);
     --gradient-ocean: linear-gradient(135deg, hsl(200 75% 50%) 0%, hsl(220 45% 20%) 100%);
     --gradient-warm: linear-gradient(180deg, hsl(40 33% 98%) 0%, hsl(35 40% 95%) 100%);
     
@@ -97,13 +98,16 @@
     --accent: 38 95% 55%;
     --accent-foreground: 220 30% 10%;
 
-    --success: 158 64% 42%;
+    /* Success green #10B981 */
+    --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 220 30% 10%;
+    /* Warning amber #F59E0B */
+    --warning: 43 96% 50%;
+    --warning-foreground: 220 30% 15%;
 
-    --destructive: 0 62.8% 45%;
+    /* Danger/Destructive #EF4444 */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 220 20% 20%;
@@ -168,5 +172,73 @@
 
   .glass {
     @apply bg-card/80 backdrop-blur-md border border-border/50;
+  }
+
+  /* Loading skeleton shimmer effect */
+  .skeleton {
+    @apply relative overflow-hidden bg-muted;
+  }
+
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--background) / 0.4),
+      transparent
+    );
+    animation: shimmer 2s infinite;
+    background-size: 200% 100%;
+  }
+
+  /* Smooth page transitions */
+  .page-enter {
+    @apply animate-fade-in;
+  }
+
+  .page-exit {
+    @apply animate-fade-out;
+  }
+}
+
+/* Accessibility: Focus visible styles */
+@layer utilities {
+  .focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+}
+
+/* Skip to main content link for screen readers */
+.skip-link {
+  @apply absolute -top-10 left-0 z-50 bg-primary text-primary-foreground px-4 py-2 rounded-br-lg;
+  @apply focus:top-0 transition-all duration-200;
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    @apply bg-white text-black;
+  }
+
+  .gradient-sunset,
+  .gradient-primary,
+  .gradient-ocean {
+    background: hsl(var(--primary)) !important;
   }
 }

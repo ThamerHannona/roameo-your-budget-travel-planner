@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { Plane, Clock, ArrowRight, Check, Plus, X } from 'lucide-react';
 import { Flight } from '@/types/travel';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface FlightCardProps {
   flight: Flight;
@@ -12,10 +13,27 @@ interface FlightCardProps {
 }
 
 export function FlightCard({ flight, isAdded, onAdd, type, budgetExceeded = false }: FlightCardProps) {
+  const { toast } = useToast();
   const isDisabled = budgetExceeded && !isAdded;
 
+  const handleClick = () => {
+    onAdd(flight);
+    
+    if (isAdded) {
+      toast({
+        title: "Flight removed",
+        description: `${flight.airline} ${type} flight removed from your trip.`,
+      });
+    } else {
+      toast({
+        title: "Flight added",
+        description: `${flight.airline} ${type} flight added to your trip.`,
+      });
+    }
+  };
+
   return (
-    <motion.div
+    <motion.article
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -27,12 +45,15 @@ export function FlightCard({ flight, isAdded, onAdd, type, budgetExceeded = fals
             ? 'border-transparent opacity-60' 
             : 'border-transparent hover:border-primary/30 hover:shadow-lg'
       }`}
+      role="listitem"
+      aria-label={`${flight.airline} ${type} flight from ${flight.departure.airport} to ${flight.arrival.airport}, $${flight.price}`}
     >
       {isAdded && (
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full p-1"
+          aria-hidden="true"
         >
           <Check className="h-4 w-4" />
         </motion.div>
@@ -41,7 +62,7 @@ export function FlightCard({ flight, isAdded, onAdd, type, budgetExceeded = fals
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           {/* Airline Logo Placeholder */}
-          <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+          <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center overflow-hidden" aria-hidden="true">
             <Plane className={`h-5 w-5 text-muted-foreground ${type === 'return' ? 'rotate-180' : ''}`} />
           </div>
           <div>
@@ -57,7 +78,7 @@ export function FlightCard({ flight, isAdded, onAdd, type, budgetExceeded = fals
           <p className="text-sm text-muted-foreground">{flight.departure.airport}</p>
         </div>
         
-        <div className="flex-1 mx-4 flex flex-col items-center">
+        <div className="flex-1 mx-4 flex flex-col items-center" aria-hidden="true">
           <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
             <Clock className="h-3 w-3" />
             <span>{flight.duration}</span>
@@ -85,18 +106,19 @@ export function FlightCard({ flight, isAdded, onAdd, type, budgetExceeded = fals
         </div>
         <Button
           variant={isAdded ? "destructive" : "default"}
-          onClick={() => onAdd(flight)}
+          onClick={handleClick}
           disabled={isDisabled}
-          className="gap-2"
+          className="gap-2 transition-transform focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label={isAdded ? `Remove ${flight.airline} flight` : `Add ${flight.airline} flight to trip`}
         >
           {isAdded ? (
             <>
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
               Remove
             </>
           ) : (
             <>
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4" aria-hidden="true" />
               Add to Trip
             </>
           )}
@@ -104,8 +126,10 @@ export function FlightCard({ flight, isAdded, onAdd, type, budgetExceeded = fals
       </div>
 
       {isDisabled && (
-        <p className="text-xs text-destructive mt-2 text-center">Exceeds budget</p>
+        <p className="text-xs text-destructive mt-2 text-center" role="alert">
+          Exceeds budget
+        </p>
       )}
-    </motion.div>
+    </motion.article>
   );
 }
