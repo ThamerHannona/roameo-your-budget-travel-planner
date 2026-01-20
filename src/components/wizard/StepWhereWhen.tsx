@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Calendar } from 'lucide-react';
 import { CityAutocomplete } from '@/components/CityAutocomplete';
@@ -9,7 +10,7 @@ import type { TripBasics } from '@/types/trip';
 
 interface StepWhereWhenProps {
   data: TripBasics;
-  onChange: (data: TripBasics) => void;
+  onChange: Dispatch<SetStateAction<TripBasics>>;
   errors: Record<string, string>;
   onClearError: (field: string) => void;
 }
@@ -44,7 +45,7 @@ export function StepWhereWhen({ data, onChange, errors, onClearError }: StepWher
         <CityAutocomplete
           value={data.origin}
           onChange={(val) => {
-            onChange({ ...data, origin: val });
+            onChange((prev) => ({ ...prev, origin: val }));
             onClearError('origin');
           }}
           label="From"
@@ -55,7 +56,7 @@ export function StepWhereWhen({ data, onChange, errors, onClearError }: StepWher
         <CityAutocomplete
           value={data.destination}
           onChange={(val) => {
-            onChange({ ...data, destination: val });
+            onChange((prev) => ({ ...prev, destination: val }));
             onClearError('destination');
           }}
           label="To"
@@ -70,11 +71,11 @@ export function StepWhereWhen({ data, onChange, errors, onClearError }: StepWher
           startDate={data.startDate}
           endDate={data.endDate}
           onStartDateChange={(date) => {
-            onChange({ ...data, startDate: date });
+            onChange((prev) => ({ ...prev, startDate: date }));
             onClearError('dates');
           }}
           onEndDateChange={(date) => {
-            onChange({ ...data, endDate: date });
+            onChange((prev) => ({ ...prev, endDate: date }));
             onClearError('dates');
           }}
           error={errors.dates}
@@ -87,7 +88,7 @@ export function StepWhereWhen({ data, onChange, errors, onClearError }: StepWher
           id="flexibleDates"
           checked={data.flexibleDates}
           onCheckedChange={(checked) => 
-            onChange({ ...data, flexibleDates: checked as boolean })
+            onChange((prev) => ({ ...prev, flexibleDates: checked as boolean }))
           }
         />
         <div className="flex items-center gap-2">
@@ -113,12 +114,10 @@ export function StepWhereWhen({ data, onChange, errors, onClearError }: StepWher
           onChange={(e) => {
             const value = e.target.value;
             if (value === '') {
-              onChange({ ...data, travelers: 1 });
+              onChange((prev) => ({ ...prev, travelers: 1 }));
             } else {
-              onChange({
-                ...data,
-                travelers: Math.max(1, Math.min(10, parseInt(value) || 1)),
-              });
+              const nextTravelers = Math.max(1, Math.min(10, parseInt(value) || 1));
+              onChange((prev) => ({ ...prev, travelers: nextTravelers }));
             }
           }}
           onFocus={(e) => e.target.select()}
