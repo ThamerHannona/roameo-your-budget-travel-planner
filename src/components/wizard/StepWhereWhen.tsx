@@ -65,7 +65,7 @@ export function StepWhereWhen({ data, onChange, errors, onClearError }: StepWher
       </motion.div>
 
       {/* Date Range */}
-      <motion.div variants={itemVariants}>
+      <motion.div variants={itemVariants} className="relative z-10">
         <DateRangePicker
           startDate={data.startDate}
           endDate={data.endDate}
