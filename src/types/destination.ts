@@ -41,9 +41,16 @@ export interface DestinationMatch extends Destination {
   estimatedTotalCost: number;  // For trip duration
   dailyCost: number;           // Based on style
   flightCost: number;
+  accommodationCost: number;   // Total hotel cost
+  activitiesCost: number;      // Estimated activities
+  foodCost: number;            // Estimated food
   weatherScore: number;        // 0-100 based on travel dates
   crowdScore: number;          // 0-100 (higher = less crowded)
+  confidenceScore: number;     // 0-100 overall confidence
   affordability: 'budget-friendly' | 'good-value' | 'splurge' | 'over-budget';
+  budgetDelta: number;         // Positive = under budget, negative = over
+  whyThisWorks: string;        // AI-generated insight
+  flagEmoji: string;           // Country flag emoji
 }
 
 export interface CompareDestination {

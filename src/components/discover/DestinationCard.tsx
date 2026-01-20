@@ -1,8 +1,13 @@
 import { motion } from 'framer-motion';
-import { MapPin, Sun, Cloud, CloudRain, Snowflake, Thermometer, Users, DollarSign, Plus, Check } from 'lucide-react';
+import { 
+  MapPin, Sun, Cloud, CloudRain, Snowflake, Thermometer, 
+  Users, DollarSign, Plus, Check, Star, Plane, Hotel, 
+  Utensils, Sparkles, ChevronRight
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { DestinationMatch } from '@/types/destination';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +16,7 @@ interface DestinationCardProps {
   isSelected?: boolean;
   onSelect?: () => void;
   onCompare?: () => void;
+  onViewDetails?: () => void;
   compareCount?: number;
 }
 
@@ -31,7 +37,31 @@ const WeatherIcon = ({ condition }: { condition: string }) => {
   }
 };
 
-const AffordabilityBadge = ({ affordability }: { affordability: DestinationMatch['affordability'] }) => {
+const ConfidenceStars = ({ score }: { score: number }) => {
+  // Convert 0-100 score to 1-5 stars
+  const stars = Math.round((score / 100) * 5);
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star 
+          key={i} 
+          className={cn(
+            'h-3 w-3',
+            i < stars ? 'fill-warning text-warning' : 'text-muted-foreground/30'
+          )} 
+        />
+      ))}
+    </div>
+  );
+};
+
+const AffordabilityBadge = ({ 
+  affordability, 
+  budgetDelta 
+}: { 
+  affordability: DestinationMatch['affordability']; 
+  budgetDelta: number;
+}) => {
   const variants = {
     'budget-friendly': 'bg-success/10 text-success border-success/20',
     'good-value': 'bg-primary/10 text-primary border-primary/20',
@@ -39,11 +69,13 @@ const AffordabilityBadge = ({ affordability }: { affordability: DestinationMatch
     'over-budget': 'bg-destructive/10 text-destructive border-destructive/20',
   };
   
-  const labels = {
-    'budget-friendly': 'Great Value',
-    'good-value': 'Good Value',
-    'splurge': 'Worth the Splurge',
-    'over-budget': 'Over Budget',
+  const getLabel = () => {
+    if (budgetDelta > 0) {
+      return `$${Math.abs(budgetDelta).toLocaleString()} under budget`;
+    } else if (budgetDelta < 0) {
+      return `$${Math.abs(budgetDelta).toLocaleString()} over budget`;
+    }
+    return 'At budget';
   };
   
   return (
@@ -51,7 +83,7 @@ const AffordabilityBadge = ({ affordability }: { affordability: DestinationMatch
       variant="outline" 
       className={cn('text-xs font-medium', variants[affordability])}
     >
-      {labels[affordability]}
+      {getLabel()}
     </Badge>
   );
 };
@@ -61,6 +93,7 @@ export function DestinationCard({
   isSelected = false,
   onSelect,
   onCompare,
+  onViewDetails,
   compareCount = 0,
 }: DestinationCardProps) {
   const currentMonth = new Date().getMonth() + 1;
@@ -74,28 +107,31 @@ export function DestinationCard({
       transition={{ duration: 0.2 }}
     >
       <Card className={cn(
-        'overflow-hidden cursor-pointer transition-all duration-300',
+        'overflow-hidden cursor-pointer transition-all duration-300 h-full',
         isSelected && 'ring-2 ring-primary shadow-lg'
       )}>
         {/* Image */}
-        <div className="relative h-48 overflow-hidden">
+        <div className="relative h-40 overflow-hidden">
           <img
             src={destination.imageUrl}
             alt={destination.name}
             className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
           />
           
-          {/* Value Score Badge */}
+          {/* Confidence Score Badge */}
           <div className="absolute top-3 left-3">
-            <div className="bg-background/90 backdrop-blur-sm rounded-full px-3 py-1 flex items-center gap-1.5">
-              <span className="text-xs font-medium text-muted-foreground">Value</span>
-              <span className={cn(
-                'text-sm font-bold',
-                destination.valueScore >= 70 ? 'text-success' : 
-                destination.valueScore >= 50 ? 'text-warning' : 'text-muted-foreground'
-              )}>
-                {destination.valueScore}
-              </span>
+            <div className="bg-background/90 backdrop-blur-sm rounded-lg px-2.5 py-1.5 flex flex-col gap-0.5">
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  'text-sm font-bold',
+                  destination.confidenceScore >= 90 ? 'text-success' : 
+                  destination.confidenceScore >= 80 ? 'text-warning' : 'text-muted-foreground'
+                )}>
+                  {destination.confidenceScore}%
+                </span>
+                <span className="text-[10px] text-muted-foreground">confidence</span>
+              </div>
+              <ConfidenceStars score={destination.confidenceScore} />
             </div>
           </div>
           
@@ -104,7 +140,7 @@ export function DestinationCard({
             <Button
               size="sm"
               variant={isSelected ? 'default' : 'secondary'}
-              className="absolute top-3 right-3"
+              className="absolute top-3 right-3 h-7 text-xs"
               onClick={(e) => {
                 e.stopPropagation();
                 onCompare();
@@ -114,7 +150,7 @@ export function DestinationCard({
               {isSelected ? (
                 <>
                   <Check className="h-3 w-3 mr-1" />
-                  Selected
+                  Added
                 </>
               ) : (
                 <>
@@ -125,78 +161,115 @@ export function DestinationCard({
             </Button>
           )}
           
-          {/* Affordability Badge */}
+          {/* Budget Badge */}
           <div className="absolute bottom-3 left-3">
-            <AffordabilityBadge affordability={destination.affordability} />
+            <AffordabilityBadge 
+              affordability={destination.affordability} 
+              budgetDelta={destination.budgetDelta}
+            />
           </div>
         </div>
         
         <CardContent className="p-4 space-y-3" onClick={onSelect}>
-          {/* Location */}
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="font-display font-bold text-lg text-foreground">
-                {destination.name}
-              </h3>
-              <div className="flex items-center gap-1 text-muted-foreground text-sm">
-                <MapPin className="h-3 w-3" />
-                {destination.country}
+          {/* Location with Flag */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{destination.flagEmoji}</span>
+              <div>
+                <h3 className="font-display font-bold text-lg text-foreground leading-tight">
+                  {destination.name}
+                </h3>
+                <div className="flex items-center gap-1 text-muted-foreground text-sm">
+                  <MapPin className="h-3 w-3" />
+                  {destination.country}
+                </div>
               </div>
             </div>
             
-            {/* Weather */}
+            {/* Total Cost */}
+            <div className="text-right">
+              <div className="text-xl font-bold text-foreground">
+                ${destination.estimatedTotalCost.toLocaleString()}
+              </div>
+              <div className="text-xs text-muted-foreground">total</div>
+            </div>
+          </div>
+          
+          {/* Quick Stats */}
+          <div className="flex items-center gap-4 text-sm">
             {weather && (
-              <div className="flex items-center gap-1 text-sm">
+              <div className="flex items-center gap-1">
                 <WeatherIcon condition={weather.condition} />
                 <span className="font-medium">{Math.round(weather.temp)}°F</span>
               </div>
             )}
-          </div>
-          
-          {/* Cost Breakdown */}
-          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Estimated total</span>
-              <span className="font-bold text-foreground">
-                ${destination.estimatedTotalCost.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <DollarSign className="h-3 w-3" />
-                ${destination.dailyCost}/day
-              </span>
-              <span>+ ${destination.flightCost} flights</span>
-            </div>
-          </div>
-          
-          {/* Scores */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex items-center gap-2 text-xs">
-              <div className={cn(
-                'w-2 h-2 rounded-full',
-                destination.weatherScore >= 70 ? 'bg-success' :
-                destination.weatherScore >= 50 ? 'bg-warning' : 'bg-muted'
+            <div className="flex items-center gap-1">
+              <Users className={cn(
+                'h-4 w-4',
+                destination.crowdScore >= 70 ? 'text-success' :
+                destination.crowdScore >= 50 ? 'text-warning' : 'text-destructive'
               )} />
-              <span className="text-muted-foreground">Weather: {destination.weatherScore}%</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <Users className="h-3 w-3 text-muted-foreground" />
               <span className="text-muted-foreground">
-                {destination.crowdScore >= 70 ? 'Uncrowded' : 
+                {destination.crowdScore >= 70 ? 'Low' : 
                  destination.crowdScore >= 50 ? 'Moderate' : 'Busy'}
               </span>
             </div>
+            <div className="flex items-center gap-1">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-muted-foreground">Value: {destination.valueScore}</span>
+            </div>
           </div>
           
-          {/* Highlights */}
-          <div className="flex flex-wrap gap-1">
-            {destination.highlights.slice(0, 3).map((highlight, i) => (
-              <Badge key={i} variant="outline" className="text-xs bg-background">
-                {highlight}
-              </Badge>
-            ))}
+          {/* Mini Budget Breakdown */}
+          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-1.5">
+                <Plane className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Flight:</span>
+                <span className="font-medium">${destination.flightCost}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Hotel className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Hotel:</span>
+                <span className="font-medium">${destination.accommodationCost}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Activities:</span>
+                <span className="font-medium">${destination.activitiesCost}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Utensils className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Food:</span>
+                <span className="font-medium">${destination.foodCost}</span>
+              </div>
+            </div>
           </div>
+          
+          {/* Why This Works */}
+          <div className="flex items-start gap-2 text-sm">
+            <div className="p-1 bg-success/10 rounded">
+              <Check className="h-3 w-3 text-success" />
+            </div>
+            <p className="text-muted-foreground italic leading-snug">
+              "{destination.whyThisWorks}"
+            </p>
+          </div>
+          
+          {/* View Details Button */}
+          {onViewDetails && (
+            <Button 
+              variant="outline" 
+              className="w-full mt-2 gap-2" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewDetails();
+              }}
+            >
+              View Details
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
         </CardContent>
       </Card>
     </motion.div>
