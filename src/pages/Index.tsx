@@ -8,9 +8,18 @@ const Index = () => {
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted" />
-      <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-primary/5 blur-3xl rounded-full" />
-      <div className="absolute bottom-0 left-0 w-1/3 h-1/3 bg-primary/5 blur-3xl rounded-full" />
+      <div
+        className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted pointer-events-none"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute top-0 right-0 w-1/2 h-1/2 bg-primary/5 blur-3xl rounded-full pointer-events-none"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute bottom-0 left-0 w-1/3 h-1/3 bg-primary/5 blur-3xl rounded-full pointer-events-none"
+        aria-hidden="true"
+      />
       
       {/* Content */}
       <div className="relative z-10">

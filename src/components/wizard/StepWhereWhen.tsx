@@ -121,7 +121,11 @@ export function StepWhereWhen({ data, onChange, errors, onClearError }: StepWher
               });
             }
           }}
-          onFocus={(e) => e.target.select()}
+          onClick={() => console.log('[StepWhereWhen] travelers input click')}
+          onFocus={(e) => {
+            console.log('[StepWhereWhen] travelers input focus');
+            e.target.select();
+          }}
           className="h-12 max-w-32"
           min={1}
           max={10}
