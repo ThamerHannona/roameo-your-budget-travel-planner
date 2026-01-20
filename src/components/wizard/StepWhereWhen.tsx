@@ -110,12 +110,18 @@ export function StepWhereWhen({ data, onChange, errors, onClearError }: StepWher
         <Input
           type="number"
           value={data.travelers}
-          onChange={(e) =>
-            onChange({
-              ...data,
-              travelers: Math.max(1, Math.min(10, parseInt(e.target.value) || 1)),
-            })
-          }
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value === '') {
+              onChange({ ...data, travelers: 1 });
+            } else {
+              onChange({
+                ...data,
+                travelers: Math.max(1, Math.min(10, parseInt(value) || 1)),
+              });
+            }
+          }}
+          onFocus={(e) => e.target.select()}
           className="h-12 max-w-32"
           min={1}
           max={10}
