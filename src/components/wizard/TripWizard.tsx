@@ -141,7 +141,7 @@ export function TripWizard() {
   const hasErrors = Object.keys(errors).length > 0;
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
+    <div className="w-full max-w-3xl mx-auto relative z-20">
       <WizardProgress currentStep={currentStep} totalSteps={TOTAL_STEPS} />
 
       {/* Error Summary */}
@@ -167,7 +167,7 @@ export function TripWizard() {
       </AnimatePresence>
 
       {/* Step Content */}
-      <div className="bg-card rounded-2xl shadow-xl border border-border p-5 md:p-8 overflow-hidden">
+      <div className="bg-card rounded-2xl shadow-xl border border-border p-5 md:p-8 overflow-hidden relative isolate">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={currentStep}

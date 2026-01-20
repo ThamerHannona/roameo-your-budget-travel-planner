@@ -61,7 +61,10 @@ export function DateRangePicker({
               !dateRange && 'text-muted-foreground',
               error && 'border-destructive focus-visible:ring-destructive'
             )}
-            onClick={() => setIsOpen(true)}
+            onClick={() => {
+              console.log('[DateRangePicker] trigger click');
+              setIsOpen(true);
+            }}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {dateRange?.from ? (
