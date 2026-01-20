@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { TravelProvider } from "@/context/TravelContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import BudgetLanding from "./pages/BudgetLanding";
 import Index from "./pages/Index";
 import Results from "./pages/Results";
 import Itinerary from "./pages/Itinerary";
@@ -31,7 +32,8 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={<Index />} />
+                <Route path="/" element={<BudgetLanding />} />
+                <Route path="/wizard" element={<Index />} />
                 <Route path="/discover" element={<Discover />} />
                 <Route path="/results" element={<Results />} />
                 <Route path="/itinerary" element={<Itinerary />} />
