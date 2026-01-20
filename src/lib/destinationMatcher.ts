@@ -1,5 +1,6 @@
 import { Destination, DestinationMatch } from '@/types/destination';
 import { destinations } from '@/data/destinations';
+import { getFlagEmoji } from '@/data/countryFlags';
 
 interface MatchCriteria {
   budget: number;           // Total trip budget
@@ -81,6 +82,67 @@ const calculateCrowdScore = (destination: Destination, startDate: Date, endDate:
   return Math.round(100 - (avgCrowd - 1) * 20);
 };
 
+// Generate a "why this works" insight
+const generateInsight = (
+  destination: Destination, 
+  budgetRatio: number, 
+  weatherScore: number, 
+  crowdScore: number
+): string => {
+  const insights: string[] = [];
+  
+  if (budgetRatio <= 0.6) {
+    insights.push('Excellent value for money');
+  } else if (budgetRatio <= 0.75) {
+    insights.push('Great savings potential');
+  }
+  
+  if (weatherScore >= 80) {
+    insights.push('perfect weather for your dates');
+  } else if (weatherScore >= 60) {
+    insights.push('pleasant weather expected');
+  }
+  
+  if (crowdScore >= 80) {
+    insights.push('off-peak season means fewer crowds');
+  } else if (crowdScore >= 60) {
+    insights.push('moderate tourist levels');
+  }
+  
+  if (destination.bestFor.length > 0) {
+    insights.push(`ideal for ${destination.bestFor[0].toLowerCase()}`);
+  }
+  
+  return insights.slice(0, 2).join(' with ') || `Discover ${destination.name}'s unique charm`;
+};
+
+// Calculate confidence score based on data quality and match
+const calculateConfidenceScore = (
+  weatherScore: number,
+  crowdScore: number,
+  budgetRatio: number,
+  destination: Destination
+): number => {
+  // Base score from weather and crowd predictions
+  let score = (weatherScore * 0.3) + (crowdScore * 0.2);
+  
+  // Add points for well-known destinations with reliable data
+  const popularDestinations = ['lisbon', 'barcelona', 'tokyo', 'paris', 'rome', 'cancun'];
+  if (popularDestinations.includes(destination.id)) {
+    score += 15;
+  }
+  
+  // Budget match contributes to confidence
+  if (budgetRatio <= 0.8) score += 20;
+  else if (budgetRatio <= 0.95) score += 10;
+  
+  // Highlights and tags add confidence
+  score += Math.min(destination.highlights.length * 2, 10);
+  score += Math.min(destination.tags.length * 2, 10);
+  
+  return Math.min(98, Math.max(70, Math.round(score)));
+};
+
 // Main matching function
 export const matchDestinations = (criteria: MatchCriteria): DestinationMatch[] => {
   const nights = getNights(criteria.startDate, criteria.endDate);
@@ -91,8 +153,10 @@ export const matchDestinations = (criteria: MatchCriteria): DestinationMatch[] =
       // Calculate costs
       const dailyCost = destination.costs[criteria.tripStyle];
       const flightCost = destination.costs.flight;
-      const accommodationCost = dailyCost * nights;
-      const estimatedTotalCost = (flightCost + accommodationCost) * criteria.travelers;
+      const accommodationCost = dailyCost * nights * 0.5; // ~50% on accommodation
+      const activitiesCost = dailyCost * nights * 0.3;    // ~30% on activities
+      const foodCost = dailyCost * nights * 0.2;          // ~20% on food
+      const estimatedTotalCost = (flightCost + (dailyCost * nights)) * criteria.travelers;
       
       // Calculate scores
       const weatherScore = calculateWeatherScore(destination, criteria.startDate, criteria.endDate);
@@ -119,7 +183,6 @@ export const matchDestinations = (criteria: MatchCriteria): DestinationMatch[] =
       else affordability = 'over-budget';
       
       // Value score calculation
-      // Higher score = better value (considering cost, weather, crowds)
       const costEfficiency = affordability !== 'over-budget' 
         ? Math.max(0, 100 - (budgetRatio * 80)) 
         : 0;
@@ -131,19 +194,87 @@ export const matchDestinations = (criteria: MatchCriteria): DestinationMatch[] =
         interestBonus
       );
       
+      // Budget delta (positive = under budget)
+      const budgetDelta = criteria.budget - estimatedTotalCost;
+      
+      // Confidence score
+      const confidenceScore = calculateConfidenceScore(weatherScore, crowdScore, budgetRatio, destination);
+      
+      // Generate insight
+      const whyThisWorks = generateInsight(destination, budgetRatio, weatherScore, crowdScore);
+      
       return {
         ...destination,
         valueScore: Math.min(100, Math.max(0, valueScore)),
         estimatedTotalCost,
         dailyCost,
         flightCost,
+        accommodationCost: Math.round(accommodationCost * criteria.travelers),
+        activitiesCost: Math.round(activitiesCost * criteria.travelers),
+        foodCost: Math.round(foodCost * criteria.travelers),
         weatherScore,
         crowdScore,
+        confidenceScore,
         affordability,
+        budgetDelta: Math.round(budgetDelta),
+        whyThisWorks,
+        flagEmoji: getFlagEmoji(destination.country),
       };
     })
     .filter(d => d.affordability !== 'over-budget')
     .sort((a, b) => b.valueScore - a.valueScore);
+};
+
+// Get ghost trips (slightly over budget)
+export const getGhostTrips = (criteria: MatchCriteria): DestinationMatch[] => {
+  const nights = getNights(criteria.startDate, criteria.endDate);
+  
+  return destinations
+    .map(destination => {
+      const dailyCost = destination.costs[criteria.tripStyle];
+      const flightCost = destination.costs.flight;
+      const accommodationCost = dailyCost * nights * 0.5;
+      const activitiesCost = dailyCost * nights * 0.3;
+      const foodCost = dailyCost * nights * 0.2;
+      const estimatedTotalCost = (flightCost + (dailyCost * nights)) * criteria.travelers;
+      
+      const weatherScore = calculateWeatherScore(destination, criteria.startDate, criteria.endDate);
+      const crowdScore = calculateCrowdScore(destination, criteria.startDate, criteria.endDate);
+      const budgetRatio = estimatedTotalCost / criteria.budget;
+      const budgetDelta = criteria.budget - estimatedTotalCost;
+      const confidenceScore = calculateConfidenceScore(weatherScore, crowdScore, budgetRatio, destination);
+      const whyThisWorks = generateInsight(destination, budgetRatio, weatherScore, crowdScore);
+      
+      const valueScore = Math.round(
+        (Math.max(0, 100 - (budgetRatio * 80)) * 0.4) + 
+        (weatherScore * 0.3) + 
+        (crowdScore * 0.2)
+      );
+      
+      return {
+        ...destination,
+        valueScore: Math.min(100, Math.max(0, valueScore)),
+        estimatedTotalCost,
+        dailyCost,
+        flightCost,
+        accommodationCost: Math.round(accommodationCost * criteria.travelers),
+        activitiesCost: Math.round(activitiesCost * criteria.travelers),
+        foodCost: Math.round(foodCost * criteria.travelers),
+        weatherScore,
+        crowdScore,
+        confidenceScore,
+        affordability: 'over-budget' as const,
+        budgetDelta: Math.round(budgetDelta),
+        whyThisWorks,
+        flagEmoji: getFlagEmoji(destination.country),
+      };
+    })
+    .filter(d => {
+      const ratio = d.estimatedTotalCost / criteria.budget;
+      return ratio > 1.0 && ratio <= 1.25; // 0-25% over budget
+    })
+    .sort((a, b) => a.estimatedTotalCost - b.estimatedTotalCost)
+    .slice(0, 3);
 };
 
 // Get top recommendations with different criteria

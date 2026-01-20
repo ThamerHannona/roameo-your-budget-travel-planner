@@ -1,15 +1,18 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Compass, Scale } from 'lucide-react';
+import { ArrowLeft, Compass, Scale, Menu } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { DestinationCard } from '@/components/discover/DestinationCard';
 import { ComparisonModal } from '@/components/discover/ComparisonModal';
-import { DiscoverFilters } from '@/components/discover/DiscoverFilters';
+import { SearchSummaryHeader } from '@/components/discover/SearchSummaryHeader';
+import { StickyComparisonBar } from '@/components/discover/StickyComparisonBar';
+import { DiscoverSidebar, DiscoverFiltersState } from '@/components/discover/DiscoverSidebar';
 import { matchDestinations } from '@/lib/destinationMatcher';
-import { useTravel } from '@/context/TravelContext';
+import { useTripSearchStore } from '@/stores/tripSearchStore';
 import { DestinationMatch, Destination } from '@/types/destination';
 
 const containerVariants = {
@@ -25,57 +28,95 @@ const itemVariants = {
   show: { opacity: 1, y: 0 },
 };
 
+const defaultFilters: DiscoverFiltersState = {
+  maxPrice: 10000,
+  minConfidence: 70,
+  weatherPreference: 'any',
+  crowdTolerance: 'any',
+  directFlightsOnly: false,
+  sortBy: 'value',
+};
+
 export default function Discover() {
   const navigate = useNavigate();
-  const { search } = useTravel();
+  const tripSearch = useTripSearchStore();
   
-  const [sortBy, setSortBy] = useState<'value' | 'cost' | 'weather' | 'crowd'>('value');
-  const [regionFilter, setRegionFilter] = useState<Destination['region'] | 'all'>('all');
+  const [filters, setFilters] = useState<DiscoverFiltersState>({
+    ...defaultFilters,
+    maxPrice: tripSearch.budget,
+  });
   const [compareList, setCompareList] = useState<DestinationMatch[]>([]);
   const [showComparison, setShowComparison] = useState(false);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   
-  // Match destinations based on user criteria
+  // Match destinations based on user criteria from Zustand store
   const matches = useMemo(() => {
-    if (!search) {
-      // Demo mode with default values
-      return matchDestinations({
-        budget: 3000,
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        travelers: 2,
-        tripStyle: 'mid',
-      });
-    }
+    const startDate = tripSearch.dates.start || new Date();
+    const endDate = tripSearch.dates.end || new Date(Date.now() + tripSearch.days * 24 * 60 * 60 * 1000);
     
     return matchDestinations({
-      budget: search.budget,
-      startDate: search.departureDate ? new Date(search.departureDate) : new Date(),
-      endDate: search.returnDate ? new Date(search.returnDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      travelers: search.travelers || 1,
-      tripStyle: (search as any).tripStyle || 'mid',
-      interests: (search as any).interests,
+      budget: tripSearch.budget,
+      startDate,
+      endDate,
+      travelers: tripSearch.travelers,
+      tripStyle: tripSearch.travelStyle === 'relaxation' ? 'luxury' : 
+                 tripSearch.travelStyle === 'adventure' ? 'budget' : 'mid',
     });
-  }, [search]);
+  }, [tripSearch.budget, tripSearch.dates, tripSearch.days, tripSearch.travelers, tripSearch.travelStyle]);
   
-  // Apply filters and sorting
+  // Apply sidebar filters
   const filteredDestinations = useMemo(() => {
     let filtered = [...matches];
     
-    // Region filter
-    if (regionFilter !== 'all') {
-      filtered = filtered.filter(d => d.region === regionFilter);
+    // Max price filter
+    filtered = filtered.filter(d => d.estimatedTotalCost <= filters.maxPrice);
+    
+    // Confidence filter
+    filtered = filtered.filter(d => d.confidenceScore >= filters.minConfidence);
+    
+    // Weather preference
+    if (filters.weatherPreference !== 'any') {
+      filtered = filtered.filter(d => {
+        const avgTemp = Object.values(d.weather).reduce((sum, w) => sum + w.temp, 0) / 12;
+        switch (filters.weatherPreference) {
+          case 'sunny':
+            return avgTemp >= 75;
+          case 'mild':
+            return avgTemp >= 60 && avgTemp < 75;
+          case 'cool':
+            return avgTemp < 60;
+          default:
+            return true;
+        }
+      });
+    }
+    
+    // Crowd tolerance
+    if (filters.crowdTolerance !== 'any') {
+      filtered = filtered.filter(d => {
+        switch (filters.crowdTolerance) {
+          case 'avoid-crowds':
+            return d.crowdScore >= 70;
+          case 'moderate':
+            return d.crowdScore >= 40 && d.crowdScore < 70;
+          case 'dont-mind':
+            return true;
+          default:
+            return true;
+        }
+      });
     }
     
     // Sorting
-    switch (sortBy) {
-      case 'cost':
+    switch (filters.sortBy) {
+      case 'price':
         filtered.sort((a, b) => a.estimatedTotalCost - b.estimatedTotalCost);
         break;
-      case 'weather':
-        filtered.sort((a, b) => b.weatherScore - a.weatherScore);
+      case 'confidence':
+        filtered.sort((a, b) => b.confidenceScore - a.confidenceScore);
         break;
-      case 'crowd':
-        filtered.sort((a, b) => b.crowdScore - a.crowdScore);
+      case 'flight-time':
+        filtered.sort((a, b) => a.flightCost - b.flightCost); // Using flight cost as proxy
         break;
       case 'value':
       default:
@@ -83,7 +124,7 @@ export default function Discover() {
     }
     
     return filtered;
-  }, [matches, sortBy, regionFilter]);
+  }, [matches, filters]);
   
   const toggleCompare = (destination: DestinationMatch) => {
     setCompareList(prev => {
@@ -96,15 +137,35 @@ export default function Discover() {
     });
   };
   
-  const handleSelectDestination = (destination: DestinationMatch) => {
-    // Store selection and navigate to results
-    // For now, just close modal
-    setShowComparison(false);
-    // TODO: Navigate to itinerary generation with selected destination
+  const removeFromCompare = (id: string) => {
+    setCompareList(prev => prev.filter(d => d.id !== id));
   };
   
+  const handleSelectDestination = (destination: DestinationMatch) => {
+    setShowComparison(false);
+    // Navigate to budget allocation page
+    navigate(`/trip/${destination.id}/budget`);
+  };
+  
+  const handleFiltersChange = (newFilters: Partial<DiscoverFiltersState>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+  };
+  
+  const resetFilters = () => {
+    setFilters({ ...defaultFilters, maxPrice: tripSearch.budget });
+  };
+  
+  const sidebarContent = (
+    <DiscoverSidebar
+      filters={filters}
+      onFiltersChange={handleFiltersChange}
+      onReset={resetFilters}
+      maxBudget={tripSearch.budget}
+    />
+  );
+  
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -116,8 +177,25 @@ export default function Discover() {
           </div>
           
           <div className="flex items-center gap-3">
+            {/* Mobile filter button */}
+            <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="lg:hidden">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-80 p-0">
+                <div className="p-4 border-b">
+                  <h2 className="font-semibold">Filters</h2>
+                </div>
+                <div className="p-4">
+                  {sidebarContent}
+                </div>
+              </SheetContent>
+            </Sheet>
+            
             {compareList.length > 0 && (
-              <Button onClick={() => setShowComparison(true)} className="gap-2">
+              <Button onClick={() => setShowComparison(true)} className="gap-2 hidden md:flex">
                 <Scale className="h-4 w-4" />
                 Compare ({compareList.length})
               </Button>
@@ -127,85 +205,73 @@ export default function Discover() {
         </div>
       </header>
       
-      <main className="container mx-auto px-4 py-8">
-        {/* Hero */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
-        >
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-4">
-            <Compass className="h-4 w-4" />
-            Discover Destinations
-          </div>
-          <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-3">
-            {search ? (
-              <>
-                {matches.length} destinations for your
-                <span className="text-primary"> ${search.budget.toLocaleString()}</span> budget
-              </>
-            ) : (
-              <>
-                Explore {matches.length}
-                <span className="text-primary"> amazing destinations</span>
-              </>
-            )}
-          </h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Select up to 3 destinations to compare side-by-side. We've ranked them by value, 
-            considering cost, weather, and crowd levels for your dates.
-          </p>
-        </motion.div>
-        
-        {/* Filters */}
-        <DiscoverFilters
-          sortBy={sortBy}
-          onSortChange={setSortBy}
-          regionFilter={regionFilter}
-          onRegionChange={setRegionFilter}
+      <main className="container mx-auto px-4 py-6">
+        {/* Search Summary */}
+        <SearchSummaryHeader
+          budget={tripSearch.budget}
+          days={tripSearch.days}
+          startDate={tripSearch.dates.start}
+          endDate={tripSearch.dates.end}
+          departureCity={tripSearch.departureCity}
+          travelers={tripSearch.travelers}
           resultCount={filteredDestinations.length}
+          onEdit={() => navigate('/')}
         />
         
-        {/* Destination Grid */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8"
-        >
-          <AnimatePresence mode="popLayout">
-            {filteredDestinations.map((destination) => (
+        {/* Main Layout */}
+        <div className="flex gap-6">
+          {/* Sidebar (Desktop) */}
+          <div className="hidden lg:block w-72 shrink-0">
+            {sidebarContent}
+          </div>
+          
+          {/* Destination Grid */}
+          <div className="flex-1">
+            {filteredDestinations.length > 0 ? (
               <motion.div
-                key={destination.id}
-                variants={itemVariants}
-                layout
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
               >
-                <DestinationCard
-                  destination={destination}
-                  isSelected={compareList.some(d => d.id === destination.id)}
-                  onCompare={() => toggleCompare(destination)}
-                  compareCount={compareList.length}
-                />
+                <AnimatePresence mode="popLayout">
+                  {filteredDestinations.map((destination) => (
+                    <motion.div
+                      key={destination.id}
+                      variants={itemVariants}
+                      layout
+                    >
+                      <DestinationCard
+                        destination={destination}
+                        isSelected={compareList.some(d => d.id === destination.id)}
+                        onCompare={() => toggleCompare(destination)}
+                        onViewDetails={() => handleSelectDestination(destination)}
+                        compareCount={compareList.length}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-        
-        {filteredDestinations.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-16"
-          >
-            <Compass className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-xl font-display font-semibold text-foreground mb-2">
-              No destinations found
-            </h3>
-            <p className="text-muted-foreground">
-              Try adjusting your filters or increasing your budget.
-            </p>
-          </motion.div>
-        )}
+            ) : (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-16"
+              >
+                <Compass className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-display font-semibold text-foreground mb-2">
+                  No destinations found
+                </h3>
+                <p className="text-muted-foreground mb-4">
+                  Try adjusting your filters or increasing your budget.
+                </p>
+                <Button variant="outline" onClick={resetFilters}>
+                  Reset Filters
+                </Button>
+              </motion.div>
+            )}
+          </div>
+        </div>
       </main>
       
       {/* Comparison Modal */}
@@ -216,24 +282,14 @@ export default function Discover() {
         onSelect={handleSelectDestination}
       />
       
-      {/* Floating Compare Button (Mobile) */}
+      {/* Sticky Comparison Bar */}
       <AnimatePresence>
         {compareList.length > 0 && !showComparison && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 md:hidden z-50"
-          >
-            <Button
-              size="lg"
-              onClick={() => setShowComparison(true)}
-              className="shadow-lg gap-2"
-            >
-              <Scale className="h-5 w-5" />
-              Compare {compareList.length} Destinations
-            </Button>
-          </motion.div>
+          <StickyComparisonBar
+            destinations={compareList}
+            onRemove={removeFromCompare}
+            onCompare={() => setShowComparison(true)}
+          />
         )}
       </AnimatePresence>
     </div>
