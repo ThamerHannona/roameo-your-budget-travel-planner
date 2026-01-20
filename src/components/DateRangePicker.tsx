@@ -51,15 +51,17 @@ export function DateRangePicker({
         <label className="text-sm font-medium text-foreground">Travel Dates</label>
       </div>
 
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <Popover open={isOpen} onOpenChange={setIsOpen} modal={true}>
         <PopoverTrigger asChild>
           <Button
+            type="button"
             variant="outline"
             className={cn(
-              'h-12 justify-start text-left font-normal',
+              'h-12 justify-start text-left font-normal w-full',
               !dateRange && 'text-muted-foreground',
               error && 'border-destructive focus-visible:ring-destructive'
             )}
+            onClick={() => setIsOpen(true)}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {dateRange?.from ? (
@@ -76,7 +78,12 @@ export function DateRangePicker({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent 
+          className="w-auto p-0 z-[100]" 
+          align="start"
+          sideOffset={8}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <Calendar
             initialFocus
             mode="range"
@@ -85,7 +92,7 @@ export function DateRangePicker({
             onSelect={handleSelect}
             numberOfMonths={2}
             disabled={(date) => date < new Date()}
-            className="p-3 pointer-events-auto"
+            className="p-3"
           />
         </PopoverContent>
       </Popover>
