@@ -13,6 +13,7 @@ import { StickyComparisonBar } from '@/components/discover/StickyComparisonBar';
 import { DiscoverSidebar, DiscoverFiltersState } from '@/components/discover/DiscoverSidebar';
 import { matchDestinations } from '@/lib/destinationMatcher';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
+import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 import { DestinationMatch, Destination } from '@/types/destination';
 
 const containerVariants = {
@@ -40,6 +41,7 @@ const defaultFilters: DiscoverFiltersState = {
 export default function Discover() {
   const navigate = useNavigate();
   const tripSearch = useTripSearchStore();
+  const { setDestination } = useSelectedDestinationStore();
   
   const [filters, setFilters] = useState<DiscoverFiltersState>({
     ...defaultFilters,
@@ -143,6 +145,7 @@ export default function Discover() {
   
   const handleSelectDestination = (destination: DestinationMatch) => {
     setShowComparison(false);
+    setDestination(destination);
     // Navigate to budget allocation page
     navigate(`/trip/${destination.id}/budget`);
   };
