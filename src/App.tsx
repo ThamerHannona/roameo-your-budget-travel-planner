@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Results from "./pages/Results";
 import Itinerary from "./pages/Itinerary";
 import FinalItinerary from "./pages/FinalItinerary";
+import Discover from "./pages/Discover";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/discover" element={<Discover />} />
                 <Route path="/results" element={<Results />} />
                 <Route path="/itinerary" element={<Itinerary />} />
                 <Route path="/final" element={<FinalItinerary />} />
