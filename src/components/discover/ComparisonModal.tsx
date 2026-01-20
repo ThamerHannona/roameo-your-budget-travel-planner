@@ -1,10 +1,30 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Minus, MapPin, Sun, CloudRain, Users, DollarSign, Plane, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { 
+  DollarSign, 
+  Plane, 
+  Building2, 
+  Utensils, 
+  MapPin as Activities,
+  Bus,
+  Sun,
+  Users,
+  Star,
+  ArrowRight,
+  TrendingUp
+} from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { DestinationMatch } from '@/types/destination';
 import { cn } from '@/lib/utils';
+import { 
+  ComparisonHeader, 
+  ComparisonRow, 
+  ScoreBar, 
+  SmartInsights,
+  ProsConsSection 
+} from './comparison';
 
 interface ComparisonModalProps {
   open: boolean;
@@ -13,53 +33,21 @@ interface ComparisonModalProps {
   onSelect: (destination: DestinationMatch) => void;
 }
 
-interface ComparisonRowProps {
-  label: string;
-  values: (string | number | React.ReactNode)[];
-  highlight?: 'highest' | 'lowest' | 'none';
-  highlightIndex?: number;
-}
-
-const ComparisonRow = ({ label, values, highlight = 'none', highlightIndex }: ComparisonRowProps) => (
-  <div className="grid gap-4" style={{ gridTemplateColumns: `140px repeat(${values.length}, 1fr)` }}>
-    <div className="text-sm font-medium text-muted-foreground py-3">{label}</div>
-    {values.map((value, i) => (
-      <div
-        key={i}
-        className={cn(
-          'py-3 text-sm font-medium text-center border-l border-border',
-          highlight !== 'none' && highlightIndex === i && 'text-success font-bold'
-        )}
-      >
-        {value}
-      </div>
-    ))}
-  </div>
-);
-
-const ScoreBar = ({ score, color }: { score: number; color: string }) => (
-  <div className="flex items-center gap-2 justify-center">
-    <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
-      <motion.div
-        initial={{ width: 0 }}
-        animate={{ width: `${score}%` }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className={cn('h-full rounded-full', color)}
-      />
-    </div>
-    <span className="text-xs font-medium">{score}</span>
-  </div>
-);
-
 export function ComparisonModal({ open, onClose, destinations, onSelect }: ComparisonModalProps) {
   if (destinations.length === 0) return null;
   
-  // Find best values
+  // Find best values for highlighting
   const lowestCostIndex = destinations.indexOf(
     destinations.reduce((a, b) => a.estimatedTotalCost < b.estimatedTotalCost ? a : b)
   );
   const highestValueIndex = destinations.indexOf(
     destinations.reduce((a, b) => a.valueScore > b.valueScore ? a : b)
+  );
+  const lowestFlightIndex = destinations.indexOf(
+    destinations.reduce((a, b) => a.flightCost < b.flightCost ? a : b)
+  );
+  const lowestHotelIndex = destinations.indexOf(
+    destinations.reduce((a, b) => a.accommodationCost < b.accommodationCost ? a : b)
   );
   const bestWeatherIndex = destinations.indexOf(
     destinations.reduce((a, b) => a.weatherScore > b.weatherScore ? a : b)
@@ -70,117 +58,186 @@ export function ComparisonModal({ open, onClose, destinations, onSelect }: Compa
   
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm p-6 pb-4 border-b">
+          <DialogTitle className="font-display text-xl flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
             Compare Destinations
           </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Side-by-side comparison to help you choose the perfect trip
+          </p>
         </DialogHeader>
         
-        <div className="mt-4">
+        <div className="p-6 pt-4">
           {/* Destination Headers */}
-          <div 
-            className="grid gap-4 mb-6" 
-            style={{ gridTemplateColumns: `140px repeat(${destinations.length}, 1fr)` }}
-          >
-            <div />
-            {destinations.map((dest, i) => (
-              <motion.div
-                key={dest.id}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className="text-center"
-              >
-                <div className="relative mb-3">
-                  <img
-                    src={dest.imageUrl}
-                    alt={dest.name}
-                    className="w-full h-24 object-cover rounded-lg"
-                  />
-                  {highestValueIndex === i && (
-                    <Badge className="absolute -top-2 -right-2 bg-success text-success-foreground">
-                      Best Value
-                    </Badge>
-                  )}
-                </div>
-                <h3 className="font-display font-bold text-foreground">{dest.name}</h3>
-                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {dest.country}
-                </p>
-              </motion.div>
-            ))}
-          </div>
+          <ComparisonHeader 
+            destinations={destinations} 
+            bestValueIndex={highestValueIndex} 
+          />
           
           {/* Comparison Table */}
-          <div className="space-y-0 divide-y divide-border border-t border-border">
-            <ComparisonRow
-              label="Total Cost"
-              values={destinations.map(d => (
-                <span className={cn(
-                  'flex items-center justify-center gap-1',
-                  lowestCostIndex === destinations.indexOf(d) && 'text-success'
-                )}>
-                  <DollarSign className="h-4 w-4" />
-                  {d.estimatedTotalCost.toLocaleString()}
-                </span>
-              ))}
-              highlight="lowest"
-              highlightIndex={lowestCostIndex}
-            />
+          <div className="space-y-0 divide-y divide-border border-t border-b border-border rounded-lg bg-card">
+            {/* Cost Section */}
+            <div className="bg-muted/30 px-3 py-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Cost Breakdown
+              </span>
+            </div>
             
             <ComparisonRow
-              label="Daily Cost"
-              values={destinations.map(d => `$${d.dailyCost}/day`)}
+              label="Total Cost"
+              icon={<DollarSign className="h-4 w-4 text-primary" />}
+              values={destinations.map((d, i) => (
+                <div className="flex flex-col items-center">
+                  <span className={cn(
+                    'text-lg font-bold',
+                    i === lowestCostIndex && 'text-success'
+                  )}>
+                    ${d.estimatedTotalCost.toLocaleString()}
+                  </span>
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      'text-xs mt-1',
+                      d.budgetDelta >= 0 ? 'text-success border-success/30' : 'text-destructive border-destructive/30'
+                    )}
+                  >
+                    {d.budgetDelta >= 0 ? `$${d.budgetDelta} under` : `$${Math.abs(d.budgetDelta)} over`}
+                  </Badge>
+                </div>
+              ))}
+              highlightBest="lowest"
+              bestIndex={lowestCostIndex}
             />
             
             <ComparisonRow
               label="Flight Cost"
-              values={destinations.map(d => (
-                <span className="flex items-center justify-center gap-1">
-                  <Plane className="h-3 w-3" />
+              icon={<Plane className="h-4 w-4" />}
+              values={destinations.map((d, i) => (
+                <span className={cn(i === lowestFlightIndex && 'text-success font-semibold')}>
                   ${d.flightCost}
                 </span>
               ))}
+              highlightBest="lowest"
+              bestIndex={lowestFlightIndex}
             />
+            
+            <ComparisonRow
+              label="Hotel Cost"
+              icon={<Building2 className="h-4 w-4" />}
+              values={destinations.map((d, i) => (
+                <span className={cn(i === lowestHotelIndex && 'text-success font-semibold')}>
+                  ${d.accommodationCost}
+                </span>
+              ))}
+              highlightBest="lowest"
+              bestIndex={lowestHotelIndex}
+            />
+            
+            <ComparisonRow
+              label="Activities"
+              icon={<Activities className="h-4 w-4" />}
+              values={destinations.map(d => `$${d.activitiesCost}`)}
+            />
+            
+            <ComparisonRow
+              label="Food Budget"
+              icon={<Utensils className="h-4 w-4" />}
+              values={destinations.map(d => `$${d.foodCost}`)}
+            />
+            
+            <ComparisonRow
+              label="Daily Cost"
+              icon={<Bus className="h-4 w-4" />}
+              values={destinations.map(d => `$${d.dailyCost}/day`)}
+            />
+            
+            {/* Scores Section */}
+            <div className="bg-muted/30 px-3 py-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Scores & Ratings
+              </span>
+            </div>
             
             <ComparisonRow
               label="Value Score"
-              values={destinations.map(d => (
-                <ScoreBar 
-                  score={d.valueScore} 
-                  color={d.valueScore >= 70 ? 'bg-success' : d.valueScore >= 50 ? 'bg-warning' : 'bg-muted'}
-                />
+              icon={<TrendingUp className="h-4 w-4 text-primary" />}
+              values={destinations.map((d, i) => (
+                <ScoreBar score={d.valueScore} delay={0.2 + i * 0.1} />
               ))}
             />
             
             <ComparisonRow
-              label="Weather Score"
+              label="Confidence"
+              icon={<Star className="h-4 w-4 text-warning" />}
               values={destinations.map(d => (
-                <ScoreBar 
-                  score={d.weatherScore} 
-                  color={d.weatherScore >= 70 ? 'bg-success' : d.weatherScore >= 50 ? 'bg-warning' : 'bg-muted'}
-                />
+                <div className="flex items-center justify-center gap-1">
+                  <span className="font-semibold">{d.confidenceScore}%</span>
+                  <div className="flex">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={cn(
+                          'h-3 w-3',
+                          star <= Math.round(d.confidenceScore / 20)
+                            ? 'fill-warning text-warning'
+                            : 'text-muted'
+                        )}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
+            />
+            
+            <ComparisonRow
+              label="Weather"
+              icon={<Sun className="h-4 w-4 text-warning" />}
+              values={destinations.map((d, i) => (
+                <div className="flex flex-col items-center gap-1">
+                  <ScoreBar score={d.weatherScore} delay={0.3 + i * 0.1} />
+                  <span className="text-xs text-muted-foreground">
+                    {d.weatherScore >= 75 ? 'Excellent' : d.weatherScore >= 50 ? 'Good' : 'Variable'}
+                  </span>
+                </div>
+              ))}
+              highlightBest="highest"
+              bestIndex={bestWeatherIndex}
             />
             
             <ComparisonRow
               label="Crowd Level"
-              values={destinations.map(d => (
-                <div className="flex items-center justify-center gap-1">
-                  <Users className="h-3 w-3 text-muted-foreground" />
-                  <span>{d.crowdScore >= 70 ? 'Low' : d.crowdScore >= 50 ? 'Moderate' : 'High'}</span>
+              icon={<Users className="h-4 w-4" />}
+              values={destinations.map((d, i) => (
+                <div className={cn(
+                  'px-2 py-1 rounded-full text-xs font-medium',
+                  d.crowdScore >= 70 
+                    ? 'bg-success/10 text-success' 
+                    : d.crowdScore >= 40 
+                    ? 'bg-warning/10 text-warning' 
+                    : 'bg-destructive/10 text-destructive'
+                )}>
+                  {d.crowdScore >= 70 ? 'Low' : d.crowdScore >= 40 ? 'Moderate' : 'High'}
                 </div>
               ))}
+              highlightBest="highest"
+              bestIndex={leastCrowdedIndex}
             />
+            
+            {/* Best For Section */}
+            <div className="bg-muted/30 px-3 py-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Highlights
+              </span>
+            </div>
             
             <ComparisonRow
               label="Best For"
               values={destinations.map(d => (
                 <div className="flex flex-wrap gap-1 justify-center">
-                  {d.bestFor.slice(0, 2).map((item, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">
+                  {d.bestFor.slice(0, 3).map((item, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs">
                       {item}
                     </Badge>
                   ))}
@@ -189,35 +246,48 @@ export function ComparisonModal({ open, onClose, destinations, onSelect }: Compa
             />
             
             <ComparisonRow
-              label="Highlights"
+              label="Top Attractions"
               values={destinations.map(d => (
-                <ul className="text-xs text-left space-y-1">
+                <ul className="text-xs text-left space-y-1 list-none">
                   {d.highlights.slice(0, 3).map((h, i) => (
-                    <li key={i} className="flex items-start gap-1">
-                      <Check className="h-3 w-3 text-success mt-0.5 flex-shrink-0" />
-                      {h}
+                    <li key={i} className="truncate max-w-[140px]">
+                      • {h}
                     </li>
                   ))}
                 </ul>
               ))}
             />
+            
+            {/* Pros & Cons */}
+            <ProsConsSection destinations={destinations} />
           </div>
+          
+          {/* Smart Insights */}
+          <SmartInsights destinations={destinations} />
           
           {/* Action Buttons */}
           <div 
             className="grid gap-4 mt-6 pt-4 border-t border-border"
-            style={{ gridTemplateColumns: `140px repeat(${destinations.length}, 1fr)` }}
+            style={{ gridTemplateColumns: `160px repeat(${destinations.length}, 1fr)` }}
           >
-            <div />
+            <div className="text-sm text-muted-foreground flex items-center">
+              Choose your trip:
+            </div>
             {destinations.map((dest) => (
-              <Button
+              <motion.div
                 key={dest.id}
-                onClick={() => onSelect(dest)}
-                className="w-full"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
               >
-                Choose {dest.name}
-                <ArrowRight className="h-4 w-4 ml-2" />
-              </Button>
+                <Button
+                  onClick={() => onSelect(dest)}
+                  className="w-full group"
+                  size="lg"
+                >
+                  Choose {dest.name}
+                  <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </motion.div>
             ))}
           </div>
         </div>
