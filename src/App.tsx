@@ -12,6 +12,7 @@ import Results from "./pages/Results";
 import Itinerary from "./pages/Itinerary";
 import FinalItinerary from "./pages/FinalItinerary";
 import Discover from "./pages/Discover";
+import BudgetAllocation from "./pages/BudgetAllocation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
                 <Route path="/" element={<BudgetLanding />} />
                 <Route path="/wizard" element={<Index />} />
                 <Route path="/discover" element={<Discover />} />
+                <Route path="/trip/:destinationId/budget" element={<BudgetAllocation />} />
                 <Route path="/results" element={<Results />} />
                 <Route path="/itinerary" element={<Itinerary />} />
                 <Route path="/final" element={<FinalItinerary />} />
