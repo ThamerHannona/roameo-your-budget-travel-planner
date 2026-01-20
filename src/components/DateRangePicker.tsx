@@ -82,7 +82,6 @@ export function DateRangePicker({
           className="w-auto p-0 z-[100]" 
           align="start"
           sideOffset={8}
-          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <Calendar
             initialFocus
