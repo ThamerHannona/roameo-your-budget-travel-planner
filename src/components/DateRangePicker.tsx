@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { cn } from '@/lib/utils';
@@ -61,10 +61,7 @@ export function DateRangePicker({
               !dateRange && 'text-muted-foreground',
               error && 'border-destructive focus-visible:ring-destructive'
             )}
-            onClick={() => {
-              console.log('[DateRangePicker] trigger click');
-              setIsOpen(true);
-            }}
+            onClick={() => setIsOpen(true)}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {dateRange?.from ? (
@@ -94,7 +91,7 @@ export function DateRangePicker({
             selected={dateRange}
             onSelect={handleSelect}
             numberOfMonths={2}
-            disabled={(date) => date < new Date()}
+            disabled={(date) => date < startOfDay(new Date())}
             className="p-3"
           />
         </PopoverContent>

@@ -43,7 +43,10 @@ export function TripWizard() {
   });
 
   const clearError = (field: string) => {
-    setErrors((prev) => ({ ...prev, [field]: undefined }));
+    setErrors((prev) => {
+      const { [field]: _removed, ...rest } = prev;
+      return rest;
+    });
   };
 
   const validateStep1 = (): boolean => {
@@ -138,7 +141,7 @@ export function TripWizard() {
     }),
   };
 
-  const hasErrors = Object.keys(errors).length > 0;
+  const hasErrors = Object.values(errors).some(Boolean);
 
   return (
     <div className="w-full max-w-3xl mx-auto relative z-20">
@@ -157,9 +160,11 @@ export function TripWizard() {
             <div>
               <p className="font-medium text-destructive">Please fix the following:</p>
               <ul className="text-sm text-destructive/80 mt-1 space-y-0.5">
-                {Object.values(errors).map((error, i) => (
-                  <li key={i}>• {error}</li>
-                ))}
+                {Object.values(errors)
+                  .filter(Boolean)
+                  .map((error, i) => (
+                    <li key={i}>• {error}</li>
+                  ))}
               </ul>
             </div>
           </motion.div>
