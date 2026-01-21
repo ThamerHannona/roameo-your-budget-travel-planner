@@ -158,6 +158,29 @@ export const useItineraryStore = create<ItineraryState & ItineraryActions>()(
         tripDates: state.tripDates,
         travelers: state.travelers,
       }),
+      storage: {
+        getItem: (name) => {
+          const str = localStorage.getItem(name);
+          if (!str) return null;
+          const parsed = JSON.parse(str);
+          // Rehydrate dates when loading from storage
+          if (parsed?.state?.tripDates) {
+            parsed.state.tripDates = {
+              start: new Date(parsed.state.tripDates.start),
+              end: new Date(parsed.state.tripDates.end),
+            };
+          }
+          if (parsed?.state?.days) {
+            parsed.state.days = parsed.state.days.map((day: DayPlan) => ({
+              ...day,
+              date: new Date(day.date),
+            }));
+          }
+          return parsed;
+        },
+        setItem: (name, value) => localStorage.setItem(name, JSON.stringify(value)),
+        removeItem: (name) => localStorage.removeItem(name),
+      },
     }
   )
 );
