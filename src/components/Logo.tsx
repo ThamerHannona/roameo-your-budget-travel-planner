@@ -21,7 +21,7 @@ export function Logo({ size = 'md', showText = true }: LogoProps) {
   };
 
   return (
-    <Link to="/" className="flex items-center gap-1.5 group">
+    <Link to="/" className="flex items-center gap-0.5 group">
       <img 
         src={roameoIcon} 
         alt="" 
