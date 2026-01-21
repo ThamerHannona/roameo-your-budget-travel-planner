@@ -79,6 +79,21 @@ export const destinations: Destination[] = [
     tags: ['culture', 'food', 'nightlife', 'history'],
     bestFor: ['Solo travelers', 'Digital nomads', 'Foodies'],
     coordinates: { lat: 38.7223, lng: -9.1393 },
+    pros: [
+      'Exceptional food scene with affordable fine dining',
+      'Easy to navigate with historic trams and walkable neighborhoods',
+      'One of Europe\'s most affordable capital cities'
+    ],
+    cons: [
+      'Hilly terrain can be challenging for those with mobility issues',
+      'Popular tourist destination means crowds at major attractions'
+    ],
+    hotelOptions: [
+      { tier: '3-star', name: 'My Story Hotel Rossio', pricePerNight: 89, rating: 4.2, amenities: ['WiFi', 'Breakfast', 'Central'], neighborhood: 'Baixa' },
+      { tier: '4-star', name: 'Hotel Lisboa Plaza', pricePerNight: 145, rating: 4.5, amenities: ['WiFi', 'Spa', 'Restaurant', 'Bar'], neighborhood: 'Avenida da Liberdade' },
+      { tier: '5-star', name: 'Four Seasons Hotel Ritz Lisbon', pricePerNight: 420, rating: 4.9, amenities: ['Pool', 'Spa', 'Michelin Restaurant', 'Butler'], neighborhood: 'Marquês de Pombal' }
+    ],
+    detailedCosts: { flightCost: 450, hotelPerNight: 95, activitiesPerDay: 35, foodPerDay: 45, transportPerDay: 12 }
   },
   {
     id: 'prague',
@@ -105,6 +120,21 @@ export const destinations: Destination[] = [
     tags: ['beach', 'architecture', 'food', 'nightlife'],
     bestFor: ['Beach lovers', 'Architecture fans', 'Foodies'],
     coordinates: { lat: 41.3874, lng: 2.1686 },
+    pros: [
+      'Perfect mix of beach and city - you can do both in one day',
+      'Gaudí architecture is unlike anywhere else on Earth',
+      'Vibrant nightlife and incredible food scene'
+    ],
+    cons: [
+      'Pickpocketing is common in tourist areas',
+      'Can be very crowded in summer months'
+    ],
+    hotelOptions: [
+      { tier: '3-star', name: 'Hotel Jazz', pricePerNight: 105, rating: 4.2, amenities: ['Rooftop Pool', 'WiFi', 'Central'], neighborhood: 'Eixample' },
+      { tier: '4-star', name: 'Hotel Arts Barcelona', pricePerNight: 280, rating: 4.6, amenities: ['Beach', 'Pool', 'Spa', 'Michelin Restaurant'], neighborhood: 'Barceloneta' },
+      { tier: '5-star', name: 'Mandarin Oriental Barcelona', pricePerNight: 550, rating: 4.9, amenities: ['Rooftop Pool', 'Spa', 'Fine Dining', 'Gaudí Views'], neighborhood: 'Passeig de Gràcia' }
+    ],
+    detailedCosts: { flightCost: 480, hotelPerNight: 120, activitiesPerDay: 45, foodPerDay: 55, transportPerDay: 12 }
   },
   {
     id: 'paris',
@@ -183,6 +213,49 @@ export const destinations: Destination[] = [
     tags: ['adventure', 'nature', 'unique', 'photography'],
     bestFor: ['Adventure seekers', 'Photographers', 'Nature lovers'],
     coordinates: { lat: 64.1466, lng: -21.9426 },
+    pros: [
+      'Once-in-a-lifetime Northern Lights and natural wonders',
+      'Clean, safe, and incredibly photogenic landscapes',
+      'Unique geothermal experiences like the Blue Lagoon'
+    ],
+    cons: [
+      'One of the most expensive destinations in the world',
+      'Weather can be unpredictable and harsh'
+    ],
+    hotelOptions: [
+      { tier: '3-star', name: 'Fosshotel Reykjavik', pricePerNight: 165, rating: 4.1, amenities: ['WiFi', 'Restaurant', 'Bar'], neighborhood: 'City Center' },
+      { tier: '4-star', name: 'Canopy by Hilton Reykjavik', pricePerNight: 245, rating: 4.6, amenities: ['WiFi', 'Gym', 'Restaurant', 'Rooftop Bar'], neighborhood: 'Downtown' },
+      { tier: '5-star', name: 'The Retreat at Blue Lagoon', pricePerNight: 1200, rating: 4.9, amenities: ['Geothermal Spa', 'Restaurant', 'In-water bar', 'Butler'], neighborhood: 'Blue Lagoon' }
+    ],
+    detailedCosts: { flightCost: 400, hotelPerNight: 200, activitiesPerDay: 120, foodPerDay: 80, transportPerDay: 45 }
+  },
+  {
+    id: 'athens',
+    name: 'Athens',
+    country: 'Greece',
+    region: 'Europe',
+    imageUrl: 'https://images.unsplash.com/photo-1555993539-1732b0258235?w=800',
+    costs: { budget: 50, mid: 110, luxury: 280, flight: 580 },
+    weather: generateWeather('mediterranean', [4, 5, 9, 10]),
+    highlights: ['Acropolis', 'Ancient Agora', 'Plaka neighborhood', 'Greek cuisine'],
+    tags: ['history', 'culture', 'food', 'archaeology'],
+    bestFor: ['History buffs', 'Culture seekers', 'Foodies'],
+    coordinates: { lat: 37.9838, lng: 23.7275 },
+    pros: [
+      'Unparalleled ancient history and archaeological sites',
+      'Delicious Mediterranean cuisine at great prices',
+      'Gateway to Greek islands for easy day trips'
+    ],
+    cons: [
+      'Summer heat can be intense (July-August)',
+      'Some areas can feel crowded with tourists'
+    ],
+    hotelOptions: [
+      { tier: '3-star', name: 'Plaka Hotel', pricePerNight: 95, rating: 4.3, amenities: ['WiFi', 'Rooftop Terrace', 'Breakfast'], neighborhood: 'Plaka' },
+      { tier: '4-star', name: 'Electra Palace Athens', pricePerNight: 185, rating: 4.6, amenities: ['Pool', 'Spa', 'Rooftop Restaurant', 'Acropolis Views'], neighborhood: 'Plaka' },
+      { tier: '5-star', name: 'Hotel Grande Bretagne', pricePerNight: 450, rating: 4.8, amenities: ['Pool', 'Spa', 'Michelin Restaurant', 'Butler'], neighborhood: 'Syntagma Square' }
+    ],
+    detailedCosts: { flightCost: 580, hotelPerNight: 110, activitiesPerDay: 40, foodPerDay: 50, transportPerDay: 15 }
   },
   {
     id: 'santorini',
@@ -196,6 +269,21 @@ export const destinations: Destination[] = [
     tags: ['romantic', 'luxury', 'photography', 'beach'],
     bestFor: ['Couples', 'Honeymooners', 'Photographers'],
     coordinates: { lat: 36.3932, lng: 25.4615 },
+    pros: [
+      'Arguably the most romantic destination in the world',
+      'Stunning caldera views and sunsets',
+      'Unique volcanic beaches and wineries'
+    ],
+    cons: [
+      'Very expensive during peak season',
+      'Overcrowded in July-August'
+    ],
+    hotelOptions: [
+      { tier: '3-star', name: 'Villa Renos', pricePerNight: 120, rating: 4.4, amenities: ['WiFi', 'Pool', 'Breakfast'], neighborhood: 'Fira' },
+      { tier: '4-star', name: 'Katikies Chromata', pricePerNight: 280, rating: 4.7, amenities: ['Infinity Pool', 'Spa', 'Restaurant'], neighborhood: 'Imerovigli' },
+      { tier: '5-star', name: 'Canaves Oia Epitome', pricePerNight: 850, rating: 4.9, amenities: ['Private Pool', 'Spa', 'Butler', 'Helicopter Pad'], neighborhood: 'Oia' }
+    ],
+    detailedCosts: { flightCost: 600, hotelPerNight: 180, activitiesPerDay: 60, foodPerDay: 70, transportPerDay: 25 }
   },
 
   // ASIA
@@ -224,6 +312,21 @@ export const destinations: Destination[] = [
     tags: ['culture', 'food', 'technology', 'unique'],
     bestFor: ['Culture seekers', 'Tech enthusiasts', 'Foodies'],
     coordinates: { lat: 35.6762, lng: 139.6503 },
+    pros: [
+      'World\'s best food scene from street ramen to Michelin stars',
+      'Perfect blend of ultra-modern and traditional culture',
+      'Incredibly safe and efficient public transportation'
+    ],
+    cons: [
+      'Language barrier can be challenging',
+      'Peak seasons (cherry blossom, fall foliage) get very crowded'
+    ],
+    hotelOptions: [
+      { tier: '3-star', name: 'Hotel Gracery Shinjuku', pricePerNight: 120, rating: 4.3, amenities: ['WiFi', 'Restaurant', 'Godzilla Statue'], neighborhood: 'Shinjuku' },
+      { tier: '4-star', name: 'The Gate Hotel Asakusa', pricePerNight: 195, rating: 4.6, amenities: ['WiFi', 'Rooftop Bar', 'Temple Views'], neighborhood: 'Asakusa' },
+      { tier: '5-star', name: 'Park Hyatt Tokyo', pricePerNight: 650, rating: 4.9, amenities: ['Pool', 'Spa', 'New York Bar', 'City Views'], neighborhood: 'Shinjuku' }
+    ],
+    detailedCosts: { flightCost: 850, hotelPerNight: 140, activitiesPerDay: 50, foodPerDay: 60, transportPerDay: 20 }
   },
   {
     id: 'bali',
@@ -307,7 +410,7 @@ export const destinations: Destination[] = [
   },
   {
     id: 'cancun',
-    name: 'Cancun',
+    name: 'Cancún',
     country: 'Mexico',
     region: 'North America',
     imageUrl: 'https://images.unsplash.com/photo-1552074284-5e88ef1aef18?w=800',
@@ -317,6 +420,77 @@ export const destinations: Destination[] = [
     tags: ['beach', 'party', 'relaxation', 'history'],
     bestFor: ['Beach lovers', 'Party seekers', 'Families'],
     coordinates: { lat: 21.1619, lng: -86.8515 },
+    pros: [
+      'World-class all-inclusive resorts with great value',
+      'Easy access to Mayan ruins (Chichen Itza, Tulum)',
+      'Short flight from US with no passport hassle for some'
+    ],
+    cons: [
+      'Can feel very touristy in hotel zone',
+      'Spring break crowds in March-April'
+    ],
+    hotelOptions: [
+      { tier: '3-star', name: 'Hotel NYX Cancun', pricePerNight: 95, rating: 4.2, amenities: ['Pool', 'Beach Access', 'Restaurant'], neighborhood: 'Hotel Zone' },
+      { tier: '4-star', name: 'Dreams Sands Cancun', pricePerNight: 220, rating: 4.5, amenities: ['All-Inclusive', 'Spa', 'Multiple Pools', 'Beach'], neighborhood: 'Hotel Zone' },
+      { tier: '5-star', name: 'Le Blanc Spa Resort', pricePerNight: 650, rating: 4.9, amenities: ['Adults-Only', 'Spa', 'Butler', 'All-Inclusive'], neighborhood: 'Hotel Zone' }
+    ],
+    detailedCosts: { flightCost: 280, hotelPerNight: 120, activitiesPerDay: 45, foodPerDay: 50, transportPerDay: 15 }
+  },
+  {
+    id: 'playa-del-carmen',
+    name: 'Playa del Carmen',
+    country: 'Mexico',
+    region: 'North America',
+    imageUrl: 'https://images.unsplash.com/photo-1501747315-124a0eaca060?w=800',
+    costs: { budget: 40, mid: 95, luxury: 250, flight: 280 },
+    weather: generateWeather('tropical', [12, 1, 2, 3, 4]),
+    highlights: ['5th Avenue', 'Cenotes', 'Tulum day trips', 'European vibe'],
+    tags: ['beach', 'nightlife', 'culture', 'diving'],
+    bestFor: ['Couples', 'Digital nomads', 'Beach lovers'],
+    coordinates: { lat: 20.6296, lng: -87.0739 },
+    pros: [
+      'More authentic Mexican feel than Cancún',
+      'Walking-friendly downtown with great restaurants',
+      'Perfect base for exploring cenotes and Tulum'
+    ],
+    cons: [
+      'Seaweed can be an issue on beaches (varies by season)',
+      'Getting crowded due to growing popularity'
+    ],
+    hotelOptions: [
+      { tier: '3-star', name: 'Hotel HM Playa del Carmen', pricePerNight: 75, rating: 4.1, amenities: ['Pool', 'WiFi', 'Restaurant'], neighborhood: 'Centro' },
+      { tier: '4-star', name: 'The Reef Playacar', pricePerNight: 165, rating: 4.4, amenities: ['All-Inclusive', 'Beach', 'Pools', 'Spa'], neighborhood: 'Playacar' },
+      { tier: '5-star', name: 'Rosewood Mayakoba', pricePerNight: 1100, rating: 4.9, amenities: ['Private Beach', 'Cenote', 'Golf', 'Spa'], neighborhood: 'Mayakoba' }
+    ],
+    detailedCosts: { flightCost: 280, hotelPerNight: 95, activitiesPerDay: 35, foodPerDay: 40, transportPerDay: 12 }
+  },
+  {
+    id: 'costa-rica',
+    name: 'San José',
+    country: 'Costa Rica',
+    region: 'North America',
+    imageUrl: 'https://images.unsplash.com/photo-1518259102261-b40117eabbc9?w=800',
+    costs: { budget: 45, mid: 110, luxury: 280, flight: 350 },
+    weather: generateWeather('tropical', [12, 1, 2, 3, 4]),
+    highlights: ['Cloud forests', 'Volcanoes', 'Wildlife', 'Adventure sports'],
+    tags: ['nature', 'adventure', 'wildlife', 'eco-tourism'],
+    bestFor: ['Adventure seekers', 'Nature lovers', 'Eco-tourists'],
+    coordinates: { lat: 9.9281, lng: -84.0907 },
+    pros: [
+      'Incredible biodiversity with 5% of world\'s species',
+      'Adventure activities: zip-lining, rafting, surfing',
+      'Pura Vida lifestyle is genuinely welcoming'
+    ],
+    cons: [
+      'Rainy season (May-November) can limit activities',
+      'Driving can be challenging on rural roads'
+    ],
+    hotelOptions: [
+      { tier: '3-star', name: 'Hotel Presidente', pricePerNight: 85, rating: 4.0, amenities: ['WiFi', 'Restaurant', 'Central Location'], neighborhood: 'San José Centro' },
+      { tier: '4-star', name: 'Tabacon Thermal Resort', pricePerNight: 280, rating: 4.6, amenities: ['Hot Springs', 'Spa', 'Volcano Views', 'Restaurant'], neighborhood: 'Arenal' },
+      { tier: '5-star', name: 'Nayara Tented Camp', pricePerNight: 750, rating: 4.9, amenities: ['Private Hot Springs', 'Butler', 'Wildlife', 'Spa'], neighborhood: 'Arenal' }
+    ],
+    detailedCosts: { flightCost: 350, hotelPerNight: 110, activitiesPerDay: 55, foodPerDay: 45, transportPerDay: 20 }
   },
   {
     id: 'hawaii',
