@@ -49,14 +49,23 @@ export default function DayByDayItinerary() {
         travelers
       );
     }
-  }, [selectedDestination, days.length]);
+  }, [selectedDestination, days.length, budget, travelers, dates, initializeItinerary]);
 
-  // Redirect if no data
+  // Wait for store hydration before redirecting
+  const [isHydrated, setIsHydrated] = useState(false);
+  
   useEffect(() => {
-    if (!selectedDestination && days.length === 0) {
+    // Give store time to hydrate from sessionStorage
+    const timer = setTimeout(() => setIsHydrated(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Redirect if no data after hydration
+  useEffect(() => {
+    if (isHydrated && !selectedDestination && days.length === 0) {
       navigate('/discover');
     }
-  }, [selectedDestination, days.length, navigate]);
+  }, [selectedDestination, days.length, navigate, isHydrated]);
 
   if (days.length === 0) {
     return (
@@ -127,7 +136,7 @@ export default function DayByDayItinerary() {
               <BudgetPanel
                 days={days}
                 totalBudget={totalBudget}
-                budgetBreakdown={budgetBreakdown}
+                budgetBreakdown={budgetBreakdown as unknown as Record<string, number>}
               />
 
               {/* Map */}
