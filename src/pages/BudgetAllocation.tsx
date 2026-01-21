@@ -173,8 +173,8 @@ export default function BudgetAllocation() {
   };
 
   const handleContinue = () => {
-    // Navigate to next step (itinerary generation)
-    navigate('/itinerary');
+    // Navigate to day-by-day itinerary
+    navigate(`/trip/${destinationId}/itinerary`);
   };
 
   if (!destination) {

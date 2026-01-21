@@ -150,7 +150,7 @@ export function DayCard({
                               <ActivityItem
                                 activity={activity}
                                 isDragging={snapshot.isDragging}
-                                dragHandleProps={provided.dragHandleProps as Record<string, unknown> | undefined}
+                                dragHandleProps={provided.dragHandleProps as unknown as Record<string, unknown> | undefined}
                                 onAddFreeTime={() => onAddFreeTime(activity.id)}
                                 onRemove={() => onRemoveActivity(activity.id)}
                                 onViewOnMap={() => onViewActivityOnMap(activity.id)}
