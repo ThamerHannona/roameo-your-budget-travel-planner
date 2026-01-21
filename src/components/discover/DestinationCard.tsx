@@ -112,26 +112,22 @@ export function DestinationCard({
         'overflow-hidden cursor-pointer transition-all duration-300 h-full',
         isSelected && 'ring-2 ring-primary shadow-lg'
       )}>
-        {/* Image - Clickable for comparison */}
+        {/* Image - Clickable to select and navigate */}
         <div 
-          className="relative h-40 overflow-hidden cursor-pointer"
+          className="relative h-40 overflow-hidden cursor-pointer group"
           onClick={(e) => {
             e.stopPropagation();
-            if (onCompare && (isSelected || compareCount < 3)) {
-              onCompare();
-            }
+            onSelect?.();
           }}
         >
           <img
             src={destination.imageUrl}
             alt={destination.name}
-            className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
           
-          {/* Selection overlay */}
-          {isSelected && (
-            <div className="absolute inset-0 bg-primary/20 pointer-events-none" />
-          )}
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors pointer-events-none" />
           
           {/* Confidence Score Badge */}
           <div className="absolute top-3 left-3">
@@ -185,7 +181,7 @@ export function DestinationCard({
           </div>
         </div>
         
-        <CardContent className="p-4 space-y-3" onClick={onSelect}>
+        <CardContent className="p-4 space-y-3 cursor-pointer" onClick={onSelect}>
           {/* Location with Flag */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">
