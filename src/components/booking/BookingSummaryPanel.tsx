@@ -44,6 +44,12 @@ export function BookingSummaryPanel({
   travelers,
   onProceedToBooking,
 }: BookingSummaryPanelProps) {
+  // Helper to safely format date (handles both Date objects and serialized strings)
+  const formatDate = (date: Date | string): string => {
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
   // Extract bookable items from itinerary
   const bookingItems: BookingItem[] = [];
   
@@ -58,7 +64,7 @@ export function BookingSummaryPanel({
           price: activity.cost,
           bookingUrl: activity.bookingUrl,
           isBooked: activity.isBooked,
-          date: day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          date: formatDate(day.date),
           time: activity.time,
         });
       } else if (activity.type === 'hotel') {
@@ -80,7 +86,7 @@ export function BookingSummaryPanel({
           price: activity.cost,
           bookingUrl: activity.bookingUrl,
           isBooked: activity.isBooked,
-          date: day.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          date: formatDate(day.date),
           time: activity.time,
         });
       }
