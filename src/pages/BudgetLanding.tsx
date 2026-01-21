@@ -66,7 +66,14 @@ const BudgetLanding = () => {
             <h1 className="text-3xl md:text-5xl font-display font-bold text-foreground mb-4">
               Don't know where to go?
               <br />
-              <span className="text-primary">Start with what you can spend.</span>
+              <span 
+                style={{
+                  background: 'linear-gradient(135deg, #a78bfa 0%, #e879f9 50%, #38bdf8 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >Start with what you can spend.</span>
             </h1>
             <p className="text-lg text-muted-foreground max-w-xl mx-auto">
               Enter your budget and we'll discover every destination you can afford.
