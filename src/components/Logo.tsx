@@ -25,11 +25,11 @@ export function Logo({ size = 'md', showText = true }: LogoProps) {
       <img 
         src={roameoIcon} 
         alt="" 
-        className={`${iconSizeClasses[size]} object-contain transition-transform group-hover:scale-105 -mr-1`}
+        className={`${iconSizeClasses[size]} object-contain transition-transform group-hover:scale-105 -mr-2`}
       />
       {showText && (
         <div 
-          className={`${wordmarkHeightClasses[size]} relative -ml-1`}
+          className={`${wordmarkHeightClasses[size]} relative -ml-2`}
           style={{
             background: 'linear-gradient(135deg, #a78bfa 0%, #e879f9 50%, #38bdf8 100%)',
             WebkitMaskImage: `url(${roameoWordmark})`,
