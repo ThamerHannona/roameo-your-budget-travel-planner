@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Globe } from 'lucide-react';
+import roameoIcon from '@/assets/roameo-icon.png';
 
 interface AnimatedGlobeProps {
   size?: 'sm' | 'md' | 'lg';
@@ -13,10 +13,10 @@ export function AnimatedGlobe({ size = 'md', className }: AnimatedGlobeProps) {
     lg: 'w-32 h-32',
   };
 
-  const iconSizeMap = {
-    sm: 24,
-    md: 40,
-    lg: 64,
+  const imgSizeMap = {
+    sm: 48,
+    md: 80,
+    lg: 128,
   };
 
   return (
@@ -43,14 +43,22 @@ export function AnimatedGlobe({ size = 'md', className }: AnimatedGlobeProps) {
         }}
       />
       
-      {/* Inner container */}
-      <div className="relative z-10 rounded-full bg-gradient-to-br from-primary to-primary/60 p-3 shadow-lg">
-        <Globe 
-          size={iconSizeMap[size]} 
-          className="text-primary-foreground"
-          strokeWidth={1.5}
-        />
-      </div>
+      {/* ROAMEO Icon */}
+      <motion.img
+        src={roameoIcon}
+        alt="ROAMEO"
+        width={imgSizeMap[size]}
+        height={imgSizeMap[size]}
+        className="relative z-10 drop-shadow-lg"
+        animate={{
+          rotate: -360, // Counter-rotate to keep icon upright
+        }}
+        transition={{
+          duration: 20,
+          repeat: Infinity,
+          ease: 'linear',
+        }}
+      />
 
       {/* Orbiting dot */}
       <motion.div
