@@ -219,6 +219,8 @@ export const matchDestinations = (criteria: MatchCriteria): DestinationMatch[] =
         budgetDelta: Math.round(budgetDelta),
         whyThisWorks,
         flagEmoji: getFlagEmoji(destination.country),
+        pros: destination.pros,
+        cons: destination.cons,
       };
     })
     .filter(d => d.affordability !== 'over-budget')
@@ -267,6 +269,8 @@ export const getGhostTrips = (criteria: MatchCriteria): DestinationMatch[] => {
         budgetDelta: Math.round(budgetDelta),
         whyThisWorks,
         flagEmoji: getFlagEmoji(destination.country),
+        pros: destination.pros,
+        cons: destination.cons,
       };
     })
     .filter(d => {

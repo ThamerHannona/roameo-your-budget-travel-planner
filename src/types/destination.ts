@@ -1,3 +1,20 @@
+export interface HotelOption {
+  tier: '3-star' | '4-star' | '5-star';
+  name: string;
+  pricePerNight: number;
+  rating: number;
+  amenities: string[];
+  neighborhood: string;
+}
+
+export interface CostBreakdown {
+  flightCost: number;
+  hotelPerNight: number;
+  activitiesPerDay: number;
+  foodPerDay: number;
+  transportPerDay: number;
+}
+
 export interface Destination {
   id: string;
   name: string;
@@ -33,6 +50,12 @@ export interface Destination {
     lat: number;
     lng: number;
   };
+  
+  // Extended data (optional)
+  pros?: string[];
+  cons?: string[];
+  hotelOptions?: HotelOption[];
+  detailedCosts?: CostBreakdown;
 }
 
 export interface DestinationMatch extends Destination {
@@ -51,6 +74,10 @@ export interface DestinationMatch extends Destination {
   budgetDelta: number;         // Positive = under budget, negative = over
   whyThisWorks: string;        // AI-generated insight
   flagEmoji: string;           // Country flag emoji
+  
+  // Extended match data
+  pros?: string[];
+  cons?: string[];
 }
 
 export interface CompareDestination {
