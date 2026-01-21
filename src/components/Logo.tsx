@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import logoIcon from '@/assets/logo-icon.jpeg';
+import roameoIcon from '@/assets/roameo-icon.png';
+import roameoWordmark from '@/assets/roameo-wordmark.png';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -13,31 +14,35 @@ export function Logo({ size = 'md', showText = true }: LogoProps) {
     lg: 'h-14 w-14',
   };
 
-  const textSizeClasses = {
-    sm: 'text-lg',
-    md: 'text-xl',
-    lg: 'text-3xl',
+  const wordmarkHeightClasses = {
+    sm: 'h-5',
+    md: 'h-6',
+    lg: 'h-10',
   };
 
   return (
     <Link to="/" className="flex items-center gap-2.5 group">
       <img 
-        src={logoIcon} 
-        alt="ROAMEO" 
-        className={`${iconSizeClasses[size]} rounded-full object-cover transition-transform group-hover:scale-105`}
+        src={roameoIcon} 
+        alt="" 
+        className={`${iconSizeClasses[size]} object-contain transition-transform group-hover:scale-105`}
       />
       {showText && (
-        <span 
-          className={`${textSizeClasses[size]} font-display font-bold tracking-wider`}
+        <div 
+          className={`${wordmarkHeightClasses[size]} relative`}
           style={{
             background: 'linear-gradient(135deg, #a78bfa 0%, #e879f9 50%, #38bdf8 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
+            WebkitMaskImage: `url(${roameoWordmark})`,
+            WebkitMaskSize: 'contain',
+            WebkitMaskRepeat: 'no-repeat',
+            WebkitMaskPosition: 'center',
+            maskImage: `url(${roameoWordmark})`,
+            maskSize: 'contain',
+            maskRepeat: 'no-repeat',
+            maskPosition: 'center',
+            aspectRatio: '4.5 / 1',
           }}
-        >
-          ROAMEO
-        </span>
+        />
       )}
     </Link>
   );
