@@ -13,6 +13,7 @@ import Itinerary from "./pages/Itinerary";
 import FinalItinerary from "./pages/FinalItinerary";
 import Discover from "./pages/Discover";
 import BudgetAllocation from "./pages/BudgetAllocation";
+import DayByDayItinerary from "./pages/DayByDayItinerary";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
                 <Route path="/trip/:destinationId/budget" element={<BudgetAllocation />} />
                 <Route path="/results" element={<Results />} />
                 <Route path="/itinerary" element={<Itinerary />} />
+                <Route path="/trip/:destinationId/itinerary" element={<DayByDayItinerary />} />
                 <Route path="/final" element={<FinalItinerary />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
