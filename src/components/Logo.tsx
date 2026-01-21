@@ -15,13 +15,13 @@ export function Logo({ size = 'md', showText = true }: LogoProps) {
   };
 
   const wordmarkHeightClasses = {
-    sm: 'h-6',
-    md: 'h-[1.875rem]',
-    lg: 'h-[3.125rem]',
+    sm: 'h-7',
+    md: 'h-9',
+    lg: 'h-[3.75rem]',
   };
 
   return (
-    <Link to="/" className="flex items-center gap-0.5 group">
+    <Link to="/" className="flex items-center -gap-1 group">
       <img 
         src={roameoIcon} 
         alt="" 
