@@ -13,6 +13,7 @@ import { SearchSummaryHeader } from '@/components/discover/SearchSummaryHeader';
 import { StickyComparisonBar } from '@/components/discover/StickyComparisonBar';
 import { DiscoverSidebar, DiscoverFiltersState } from '@/components/discover/DiscoverSidebar';
 import { DateFlexibilityModal } from '@/components/dateFlexibility';
+import { GhostTripsSection } from '@/components/ghost';
 import { matchDestinations } from '@/lib/destinationMatcher';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
 import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
@@ -282,6 +283,19 @@ export default function Discover() {
                 </Button>
               </motion.div>
             )}
+            
+            {/* Ghost Trips Section */}
+            <GhostTripsSection
+              budget={tripSearch.budget}
+              startDate={tripSearch.dates.start || new Date()}
+              endDate={tripSearch.dates.end || addDays(new Date(), tripSearch.days - 1)}
+              travelers={tripSearch.travelers}
+              tripStyle={
+                tripSearch.travelStyle === 'relaxation' ? 'luxury' : 
+                tripSearch.travelStyle === 'adventure' ? 'budget' : 'mid'
+              }
+              days={tripSearch.days}
+            />
           </div>
         </div>
       </main>
