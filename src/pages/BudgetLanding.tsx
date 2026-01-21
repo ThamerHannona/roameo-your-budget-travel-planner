@@ -136,7 +136,10 @@ const BudgetLanding = () => {
               <Button
                 onClick={handleSubmit}
                 size="lg"
-                className="w-full h-16 text-xl font-bold gap-3"
+                className="w-full h-16 text-xl font-bold gap-3 text-white"
+                style={{
+                  background: 'linear-gradient(135deg, #a78bfa 0%, #e879f9 50%, #38bdf8 100%)',
+                }}
               >
                 <Compass className="h-6 w-6" />
                 Discover Destinations
