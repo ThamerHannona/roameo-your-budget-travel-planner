@@ -253,6 +253,7 @@ export default function Discover() {
                       <DestinationCard
                         destination={destination}
                         isSelected={compareList.some(d => d.id === destination.id)}
+                        onSelect={() => handleSelectDestination(destination)}
                         onCompare={() => toggleCompare(destination)}
                         onViewDetails={() => handleSelectDestination(destination)}
                         onFlexibleDates={() => {
