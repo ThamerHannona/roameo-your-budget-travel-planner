@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { 
   MapPin, Sun, Cloud, CloudRain, Snowflake, Thermometer, 
   Users, DollarSign, Plus, Check, Star, Plane, Hotel, 
-  Utensils, Sparkles, ChevronRight
+  Utensils, Sparkles, ChevronRight, Calendar
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ interface DestinationCardProps {
   onSelect?: () => void;
   onCompare?: () => void;
   onViewDetails?: () => void;
+  onFlexibleDates?: () => void;
   compareCount?: number;
 }
 
@@ -94,6 +95,7 @@ export function DestinationCard({
   onSelect,
   onCompare,
   onViewDetails,
+  onFlexibleDates,
   compareCount = 0,
 }: DestinationCardProps) {
   const currentMonth = new Date().getMonth() + 1;
@@ -256,20 +258,36 @@ export function DestinationCard({
             </p>
           </div>
           
-          {/* View Details Button */}
-          {onViewDetails && (
-            <Button 
-              variant="outline" 
-              className="w-full mt-2 gap-2" 
-              onClick={(e) => {
-                e.stopPropagation();
-                onViewDetails();
-              }}
-            >
-              View Details
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          )}
+          {/* Action Buttons */}
+          <div className="flex gap-2 mt-2">
+            {onFlexibleDates && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="flex-1 gap-1.5 text-xs" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFlexibleDates();
+                }}
+              >
+                <Calendar className="h-3.5 w-3.5" />
+                Flexible Dates
+              </Button>
+            )}
+            {onViewDetails && (
+              <Button 
+                variant="outline" 
+                className="flex-1 gap-2" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDetails();
+                }}
+              >
+                View Details
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
     </motion.div>
