@@ -19,6 +19,7 @@ const FinalItinerary = lazy(() => import("./pages/FinalItinerary"));
 const Discover = lazy(() => import("./pages/Discover"));
 const BudgetAllocation = lazy(() => import("./pages/BudgetAllocation"));
 const DayByDayItinerary = lazy(() => import("./pages/DayByDayItinerary"));
+const FinalBooking = lazy(() => import("./pages/FinalBooking"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
                   <Route path="/results" element={<Results />} />
                   <Route path="/itinerary" element={<Itinerary />} />
                   <Route path="/trip/:destinationId/itinerary" element={<DayByDayItinerary />} />
+                  <Route path="/trip/:destinationId/booking" element={<FinalBooking />} />
                   <Route path="/trip/:destinationId/share/:shareId" element={<DayByDayItinerary />} />
                   <Route path="/final" element={<FinalItinerary />} />
                   <Route path="*" element={<NotFound />} />
