@@ -21,15 +21,15 @@ export function Logo({ size = 'md', showText = true }: LogoProps) {
   };
 
   return (
-    <Link to="/" className="flex items-center -gap-1 group">
+    <Link to="/" className="flex items-center group">
       <img 
         src={roameoIcon} 
         alt="" 
-        className={`${iconSizeClasses[size]} object-contain transition-transform group-hover:scale-105`}
+        className={`${iconSizeClasses[size]} object-contain transition-transform group-hover:scale-105 -mr-1`}
       />
       {showText && (
         <div 
-          className={`${wordmarkHeightClasses[size]} relative`}
+          className={`${wordmarkHeightClasses[size]} relative -ml-1`}
           style={{
             background: 'linear-gradient(135deg, #a78bfa 0%, #e879f9 50%, #38bdf8 100%)',
             WebkitMaskImage: `url(${roameoWordmark})`,
