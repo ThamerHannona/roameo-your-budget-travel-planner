@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Compass, Scale, Menu } from 'lucide-react';
+import { addDays } from 'date-fns';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -11,10 +12,12 @@ import { ComparisonModal } from '@/components/discover/ComparisonModal';
 import { SearchSummaryHeader } from '@/components/discover/SearchSummaryHeader';
 import { StickyComparisonBar } from '@/components/discover/StickyComparisonBar';
 import { DiscoverSidebar, DiscoverFiltersState } from '@/components/discover/DiscoverSidebar';
+import { DateFlexibilityModal } from '@/components/dateFlexibility';
 import { matchDestinations } from '@/lib/destinationMatcher';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
 import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 import { DestinationMatch, Destination } from '@/types/destination';
+import type { DateRange } from '@/types/dateFlexibility';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -50,6 +53,8 @@ export default function Discover() {
   const [compareList, setCompareList] = useState<DestinationMatch[]>([]);
   const [showComparison, setShowComparison] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [flexibilityModalOpen, setFlexibilityModalOpen] = useState(false);
+  const [selectedFlexDestination, setSelectedFlexDestination] = useState<DestinationMatch | null>(null);
   
   // Match destinations based on user criteria from Zustand store
   const matches = useMemo(() => {
@@ -249,6 +254,10 @@ export default function Discover() {
                         isSelected={compareList.some(d => d.id === destination.id)}
                         onCompare={() => toggleCompare(destination)}
                         onViewDetails={() => handleSelectDestination(destination)}
+                        onFlexibleDates={() => {
+                          setSelectedFlexDestination(destination);
+                          setFlexibilityModalOpen(true);
+                        }}
                         compareCount={compareList.length}
                       />
                     </motion.div>
@@ -284,6 +293,26 @@ export default function Discover() {
         destinations={compareList}
         onSelect={handleSelectDestination}
       />
+      
+      {/* Date Flexibility Modal */}
+      {selectedFlexDestination && (
+        <DateFlexibilityModal
+          open={flexibilityModalOpen}
+          onOpenChange={setFlexibilityModalOpen}
+          destinationName={selectedFlexDestination.name}
+          currentDates={{
+            start: tripSearch.dates.start || new Date(),
+            end: tripSearch.dates.end || addDays(new Date(), tripSearch.days - 1),
+          }}
+          currentPrice={selectedFlexDestination.estimatedTotalCost}
+          baseFlightPrice={selectedFlexDestination.flightCost}
+          baseHotelPrice={selectedFlexDestination.accommodationCost}
+          onUpdateDates={(newDates, newPrice) => {
+            tripSearch.setDates(newDates.start, newDates.end);
+            setFlexibilityModalOpen(false);
+          }}
+        />
+      )}
       
       {/* Sticky Comparison Bar */}
       <AnimatePresence>
