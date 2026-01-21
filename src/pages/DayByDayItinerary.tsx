@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { TripHeader, DayCard, BudgetPanel, ItineraryMap } from '@/components/itinerary';
+import { BookingSummaryPanel } from '@/components/booking';
 import { useItineraryStore } from '@/stores/itineraryStore';
 import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
@@ -12,9 +13,11 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function DayByDayItinerary() {
   const navigate = useNavigate();
+  const { destinationId } = useParams();
   const isMobile = useIsMobile();
   const [selectedDayNumber, setSelectedDayNumber] = useState(1);
   const [selectedActivityId, setSelectedActivityId] = useState<string>();
+  const [showBookingPanel, setShowBookingPanel] = useState(false);
 
   const { destination: selectedDestination, budgetBreakdown } = useSelectedDestinationStore();
   const { budget, travelers, dates } = useTripSearchStore();
@@ -129,9 +132,18 @@ export default function DayByDayItinerary() {
             </div>
           </div>
 
-          {/* Sidebar - Budget & Map */}
+          {/* Sidebar - Budget, Booking & Map */}
           <div className={isMobile ? 'order-first' : 'space-y-6'}>
             <div className="lg:sticky lg:top-20 space-y-6">
+              {/* Booking Summary Panel */}
+              <BookingSummaryPanel
+                days={days}
+                destination={destination}
+                tripDates={tripDates}
+                travelers={travelers}
+                onProceedToBooking={() => navigate(`/trip/${destinationId || 'lisbon'}/booking`)}
+              />
+
               {/* Budget Panel */}
               <BudgetPanel
                 days={days}
@@ -145,7 +157,7 @@ export default function DayByDayItinerary() {
                   day={selectedDay}
                   selectedActivityId={selectedActivityId}
                   onActivitySelect={setSelectedActivityId}
-                  className="h-[400px]"
+                  className="h-[350px]"
                 />
               )}
             </div>
