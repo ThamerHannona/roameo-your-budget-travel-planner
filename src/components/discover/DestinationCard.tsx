@@ -112,13 +112,26 @@ export function DestinationCard({
         'overflow-hidden cursor-pointer transition-all duration-300 h-full',
         isSelected && 'ring-2 ring-primary shadow-lg'
       )}>
-        {/* Image */}
-        <div className="relative h-40 overflow-hidden">
+        {/* Image - Clickable for comparison */}
+        <div 
+          className="relative h-40 overflow-hidden cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onCompare && (isSelected || compareCount < 3)) {
+              onCompare();
+            }
+          }}
+        >
           <img
             src={destination.imageUrl}
             alt={destination.name}
             className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
           />
+          
+          {/* Selection overlay */}
+          {isSelected && (
+            <div className="absolute inset-0 bg-primary/20 pointer-events-none" />
+          )}
           
           {/* Confidence Score Badge */}
           <div className="absolute top-3 left-3">
