@@ -18,6 +18,7 @@ const Itinerary = lazy(() => import("./pages/Itinerary"));
 const FinalItinerary = lazy(() => import("./pages/FinalItinerary"));
 const Discover = lazy(() => import("./pages/Discover"));
 const BudgetAllocation = lazy(() => import("./pages/BudgetAllocation"));
+const RealTimeBudgetAllocation = lazy(() => import("./pages/RealTimeBudgetAllocation"));
 const DayByDayItinerary = lazy(() => import("./pages/DayByDayItinerary"));
 const FinalBooking = lazy(() => import("./pages/FinalBooking"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -45,7 +46,7 @@ const App = () => (
                   <Route path="/wizard" element={<Index />} />
                   <Route path="/discover" element={<Discover />} />
                   <Route path="/compare" element={<Discover />} />
-                  <Route path="/trip/:destinationId/budget" element={<BudgetAllocation />} />
+                  <Route path="/trip/:destinationId/budget" element={<RealTimeBudgetAllocation />} />
                   <Route path="/results" element={<Results />} />
                   <Route path="/itinerary" element={<Itinerary />} />
                   <Route path="/trip/:destinationId/itinerary" element={<DayByDayItinerary />} />

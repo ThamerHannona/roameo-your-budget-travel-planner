@@ -1,0 +1,302 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Lock, RotateCcw, ChevronDown, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { 
+  CategorySlider, 
+  BudgetPieChart, 
+  FeedbackPanel, 
+  BudgetPresets,
+  ComparisonView 
+} from '@/components/budgetAllocation';
+import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
+import { useTripSearchStore } from '@/stores/tripSearchStore';
+import { matchDestinations } from '@/lib/destinationMatcher';
+import { destinations } from '@/data/destinations';
+import { budgetPresets } from '@/data/mockBudgetData';
+import type { CategoryKey } from '@/types/budgetConstraints';
+import type { DestinationMatch } from '@/types/destination';
+
+export default function RealTimeBudgetAllocation() {
+  const { destinationId } = useParams();
+  const navigate = useNavigate();
+  const [showComparison, setShowComparison] = useState(false);
+  const [currentPreset, setCurrentPreset] = useState<keyof typeof budgetPresets | null>(null);
+  const [destination, setDestination] = useState<DestinationMatch | null>(null);
+
+  const tripSearch = useTripSearchStore();
+  const {
+    destinationBudget,
+    recentChanges,
+    updateCategory,
+    getSelectedFlight,
+    getSelectedHotel,
+    applyPreset,
+    resetToDefaults,
+    lockBudget,
+  } = useBudgetConstraintsStore();
+
+  // Load destination
+  useEffect(() => {
+    if (!destinationId) {
+      navigate('/discover');
+      return;
+    }
+
+    const matches = matchDestinations({
+      budget: tripSearch.budget,
+      startDate: tripSearch.dates.start,
+      endDate: tripSearch.dates.end,
+      travelers: tripSearch.travelers,
+      tripStyle: 'mid',
+    });
+
+    const found = matches.find((d) => d.id === destinationId);
+    if (found) {
+      setDestination(found);
+    } else {
+      // Fallback to destinations data
+      const fallback = destinations.find((d) => d.id === destinationId);
+      if (fallback) {
+        setDestination({
+          ...fallback,
+          valueScore: 75,
+          estimatedTotalCost: tripSearch.budget * 0.85,
+          dailyCost: Math.round((tripSearch.budget * 0.85) / (tripSearch.days || 7)),
+          flightCost: 500,
+          accommodationCost: 600,
+          activitiesCost: 400,
+          foodCost: 350,
+          weatherScore: 80,
+          crowdScore: 70,
+          confidenceScore: 75,
+          affordability: 'good-value',
+          budgetDelta: tripSearch.budget * 0.15,
+          whyThisWorks: 'Great value destination',
+          flagEmoji: '🌍',
+        });
+      }
+    }
+  }, [destinationId, tripSearch, navigate]);
+
+  const handleCategoryChange = useCallback(
+    (category: CategoryKey) => (value: number) => {
+      updateCategory(category, value);
+      setCurrentPreset(null); // Clear preset when manually adjusting
+    },
+    [updateCategory]
+  );
+
+  const handlePresetSelect = useCallback(
+    (preset: keyof typeof budgetPresets) => {
+      applyPreset(preset);
+      setCurrentPreset(preset);
+    },
+    [applyPreset]
+  );
+
+  const handleReset = useCallback(() => {
+    resetToDefaults();
+    setCurrentPreset('balanced');
+  }, [resetToDefaults]);
+
+  const handleContinue = useCallback(() => {
+    lockBudget();
+    navigate(`/trip/${destinationId}/itinerary`);
+  }, [lockBudget, navigate, destinationId]);
+
+  const selectedFlight = getSelectedFlight();
+  const selectedHotel = getSelectedHotel();
+  const { constraints } = destinationBudget;
+
+  if (!destination) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="h-9 w-9"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <h1 className="font-display text-lg font-bold text-foreground">
+                  Customize Your Trip
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {destination.name}, {destination.country}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="hidden sm:flex">
+                ${destinationBudget.totalBudget.toLocaleString()} budget
+              </Badge>
+              <ThemeToggle />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-6">
+        <div className="grid lg:grid-cols-[1fr,380px] gap-6">
+          {/* Left Column - Sliders */}
+          <div className="space-y-6">
+            {/* Quick Presets */}
+            <BudgetPresets onSelect={handlePresetSelect} currentPreset={currentPreset} />
+
+            {/* Category Sliders */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-foreground">
+                  Budget Allocation
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleReset}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <RotateCcw className="h-4 w-4 mr-1.5" />
+                  Reset
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                <CategorySlider
+                  category="flights"
+                  constraints={constraints.flights}
+                  totalBudget={destinationBudget.totalBudget}
+                  onChange={handleCategoryChange('flights')}
+                  selectedFlight={selectedFlight}
+                />
+
+                <CategorySlider
+                  category="hotels"
+                  constraints={constraints.hotels}
+                  totalBudget={destinationBudget.totalBudget}
+                  onChange={handleCategoryChange('hotels')}
+                  selectedHotel={selectedHotel}
+                />
+
+                <CategorySlider
+                  category="activities"
+                  constraints={constraints.activities}
+                  totalBudget={destinationBudget.totalBudget}
+                  onChange={handleCategoryChange('activities')}
+                />
+
+                <CategorySlider
+                  category="food"
+                  constraints={constraints.food}
+                  totalBudget={destinationBudget.totalBudget}
+                  onChange={handleCategoryChange('food')}
+                />
+
+                <CategorySlider
+                  category="transport"
+                  constraints={constraints.transport}
+                  totalBudget={destinationBudget.totalBudget}
+                  onChange={handleCategoryChange('transport')}
+                />
+              </div>
+            </div>
+
+            {/* Comparison Toggle */}
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">Show recent adjustments</span>
+              </div>
+              <Switch
+                checked={showComparison}
+                onCheckedChange={setShowComparison}
+              />
+            </div>
+
+            {/* Comparison View */}
+            <ComparisonView
+              changes={recentChanges}
+              totalBudget={destinationBudget.totalBudget}
+              isVisible={showComparison}
+            />
+          </div>
+
+          {/* Right Column - Visualization */}
+          <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+            {/* Pie Chart */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl bg-card border border-border p-6"
+            >
+              <h3 className="text-sm font-medium text-foreground mb-4">
+                Budget Breakdown
+              </h3>
+              <BudgetPieChart
+                constraints={constraints}
+                totalBudget={destinationBudget.totalBudget}
+              />
+            </motion.div>
+
+            {/* Feedback Panel */}
+            <FeedbackPanel changes={recentChanges} />
+
+            {/* CTA Buttons */}
+            <div className="space-y-3">
+              <Button
+                onClick={handleContinue}
+                className="w-full h-12 text-base font-semibold"
+                size="lg"
+              >
+                <Lock className="h-4 w-4 mr-2" />
+                Lock Budget & Continue
+              </Button>
+
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
+              >
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span>We'll generate your personalized itinerary next</span>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Mobile CTA */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-sm border-t border-border">
+        <Button
+          onClick={handleContinue}
+          className="w-full h-12 text-base font-semibold"
+          size="lg"
+        >
+          <Lock className="h-4 w-4 mr-2" />
+          Lock Budget & Continue
+        </Button>
+      </div>
+    </div>
+  );
+}
