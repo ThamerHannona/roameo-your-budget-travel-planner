@@ -13,20 +13,28 @@ import {
   BudgetPresets,
   ComparisonView 
 } from '@/components/budgetAllocation';
+import { PaywallModal } from '@/components/paywall';
 import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
+import { usePaymentStore } from '@/stores/paymentStore';
 import { matchDestinations } from '@/lib/destinationMatcher';
 import { destinations } from '@/data/destinations';
 import { budgetPresets } from '@/data/mockBudgetData';
 import type { CategoryKey } from '@/types/budgetConstraints';
 import type { DestinationMatch } from '@/types/destination';
+import { useToast } from '@/hooks/use-toast';
+import confetti from 'canvas-confetti';
 
 export default function RealTimeBudgetAllocation() {
   const { destinationId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showComparison, setShowComparison] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const [currentPreset, setCurrentPreset] = useState<keyof typeof budgetPresets | null>(null);
   const [destination, setDestination] = useState<DestinationMatch | null>(null);
+
+  const { isPaid, checkPaymentStatus, markAsPaid } = usePaymentStore();
 
   const tripSearch = useTripSearchStore();
   const {
@@ -105,9 +113,36 @@ export default function RealTimeBudgetAllocation() {
   }, [resetToDefaults]);
 
   const handleContinue = useCallback(() => {
+    // Check if already paid
+    const hasPaid = checkPaymentStatus(destinationId || '');
+    if (hasPaid) {
+      lockBudget();
+      navigate(`/trip/${destinationId}/itinerary`);
+    } else {
+      // Show paywall
+      setShowPaywall(true);
+    }
+  }, [checkPaymentStatus, lockBudget, navigate, destinationId]);
+
+  const handlePaymentSuccess = useCallback(() => {
+    markAsPaid(destinationId || '');
+    setShowPaywall(false);
     lockBudget();
+    
+    // Celebration!
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+
+    toast({
+      title: '🎉 Full Itinerary Unlocked!',
+      description: 'All specific details, booking links, and options are now available.',
+    });
+
     navigate(`/trip/${destinationId}/itinerary`);
-  }, [lockBudget, navigate, destinationId]);
+  }, [markAsPaid, destinationId, lockBudget, toast, navigate]);
 
   const selectedFlight = getSelectedFlight();
   const selectedHotel = getSelectedHotel();
@@ -297,6 +332,20 @@ export default function RealTimeBudgetAllocation() {
           Lock Budget & Continue
         </Button>
       </div>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onPaymentSuccess={handlePaymentSuccess}
+        tripDetails={{
+          destination: destination.name,
+          country: destination.country,
+          days: tripSearch.days || 7,
+          totalCost: destinationBudget.totalBudget,
+          travelers: tripSearch.travelers,
+        }}
+      />
     </div>
   );
 }

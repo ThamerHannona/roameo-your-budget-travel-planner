@@ -6,18 +6,26 @@ import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { TripHeader, DayCard, BudgetPanel, ItineraryMap } from '@/components/itinerary';
 import { BookingSummaryPanel } from '@/components/booking';
+import { PaywallModal } from '@/components/paywall';
 import { useItineraryStore } from '@/stores/itineraryStore';
 import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
+import { usePaymentStore } from '@/stores/paymentStore';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useToast } from '@/hooks/use-toast';
+import confetti from 'canvas-confetti';
 
 export default function DayByDayItinerary() {
   const navigate = useNavigate();
   const { destinationId } = useParams();
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   const [selectedDayNumber, setSelectedDayNumber] = useState(1);
   const [selectedActivityId, setSelectedActivityId] = useState<string>();
   const [showBookingPanel, setShowBookingPanel] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  const { isPaid, checkPaymentStatus, markAsPaid } = usePaymentStore();
 
   const { destination: selectedDestination, budgetBreakdown } = useSelectedDestinationStore();
   const { budget, travelers, dates } = useTripSearchStore();
@@ -69,6 +77,25 @@ export default function DayByDayItinerary() {
       navigate('/discover');
     }
   }, [selectedDestination, days.length, navigate, isHydrated]);
+
+  const handlePaymentSuccess = () => {
+    markAsPaid(destinationId || '');
+    setShowPaywall(false);
+    
+    // Celebration!
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+
+    toast({
+      title: '🎉 Full Itinerary Unlocked!',
+      description: 'All specific details, booking links, and options are now available.',
+    });
+
+    navigate(`/trip/${destinationId || 'lisbon'}/booking`);
+  };
 
   if (days.length === 0) {
     return (
@@ -141,7 +168,15 @@ export default function DayByDayItinerary() {
                 destination={destination}
                 tripDates={tripDates}
                 travelers={travelers}
-                onProceedToBooking={() => navigate(`/trip/${destinationId || 'lisbon'}/booking`)}
+                onProceedToBooking={() => {
+                  // Check if already paid
+                  const hasPaid = checkPaymentStatus(destinationId || '');
+                  if (hasPaid) {
+                    navigate(`/trip/${destinationId || 'lisbon'}/booking`);
+                  } else {
+                    setShowPaywall(true);
+                  }
+                }}
               />
 
               {/* Budget Panel */}
@@ -181,6 +216,20 @@ export default function DayByDayItinerary() {
           </motion.div>
         )}
       </main>
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onPaymentSuccess={handlePaymentSuccess}
+        tripDetails={{
+          destination: destination.name,
+          country: destination.country,
+          days: days.length,
+          totalCost: totalSpent,
+          travelers,
+        }}
+      />
     </div>
   );
 }
