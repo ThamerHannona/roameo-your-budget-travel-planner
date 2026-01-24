@@ -180,10 +180,19 @@ serve(async (req) => {
     const data: SerpApiResponse = await response.json();
     
     if (data.error) {
-      console.error('SerpAPI returned error:', data.error);
+      console.log('SerpAPI returned no results, using mock data:', data.error);
+      // Return 200 with useMock flag - this is a valid response, not an error
       return new Response(
-        JSON.stringify({ error: data.error, useMock: true }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          origin, 
+          destination, 
+          options: [], 
+          searchUrl: `https://www.google.com/travel/flights?q=flights+from+${origin}+to+${destination}`,
+          searchDate: new Date().toISOString(),
+          useMock: true,
+          error: data.error 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
