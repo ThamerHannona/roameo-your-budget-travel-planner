@@ -11,7 +11,8 @@ import {
   BudgetPieChart, 
   FeedbackPanel, 
   BudgetPresets,
-  ComparisonView 
+  ComparisonView,
+  FlightTierSelector,
 } from '@/components/budgetAllocation';
 import { PaywallModal } from '@/components/paywall';
 import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
@@ -199,11 +200,25 @@ export default function RealTimeBudgetAllocation() {
             {/* Quick Presets */}
             <BudgetPresets onSelect={handlePresetSelect} currentPreset={currentPreset} />
 
+            {/* Flight Tier Selector */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl bg-card border border-border p-5"
+            >
+              <FlightTierSelector
+                options={constraints.flights.options}
+                selectedPrice={constraints.flights.current}
+                onSelect={handleCategoryChange('flights')}
+                totalBudget={destinationBudget.totalBudget}
+              />
+            </motion.div>
+
             {/* Category Sliders */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-foreground">
-                  Budget Allocation
+                  Other Categories
                 </h3>
                 <Button
                   variant="ghost"
@@ -217,14 +232,6 @@ export default function RealTimeBudgetAllocation() {
               </div>
 
               <div className="space-y-3">
-                <CategorySlider
-                  category="flights"
-                  constraints={constraints.flights}
-                  totalBudget={destinationBudget.totalBudget}
-                  onChange={handleCategoryChange('flights')}
-                  selectedFlight={selectedFlight}
-                />
-
                 <CategorySlider
                   category="hotels"
                   constraints={constraints.hotels}
