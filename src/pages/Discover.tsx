@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Compass, Scale, Menu } from 'lucide-react';
-import { addDays } from 'date-fns';
+import { ArrowLeft, Compass, Scale, Menu, Loader2, RefreshCcw, Plane } from 'lucide-react';
+import { addDays, format } from 'date-fns';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { DestinationCard } from '@/components/discover/DestinationCard';
 import { ComparisonModal } from '@/components/discover/ComparisonModal';
@@ -14,11 +15,13 @@ import { StickyComparisonBar } from '@/components/discover/StickyComparisonBar';
 import { DiscoverSidebar, DiscoverFiltersState } from '@/components/discover/DiscoverSidebar';
 import { DateFlexibilityModal } from '@/components/dateFlexibility';
 import { GhostTripsSection } from '@/components/ghost';
+import { SearchingAnimation } from '@/components/loading';
 import { matchDestinations } from '@/lib/destinationMatcher';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
 import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
-import { DestinationMatch, Destination } from '@/types/destination';
-import type { DateRange } from '@/types/dateFlexibility';
+import { useFlightSearch } from '@/hooks/useFlightSearch';
+import { getAirportCode, CANDIDATE_DESTINATIONS } from '@/utils/airports';
+import { DestinationMatch } from '@/types/destination';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -46,6 +49,7 @@ export default function Discover() {
   const navigate = useNavigate();
   const tripSearch = useTripSearchStore();
   const { setDestination } = useSelectedDestinationStore();
+  const flightSearch = useFlightSearch();
   
   const [filters, setFilters] = useState<DiscoverFiltersState>({
     ...defaultFilters,
@@ -56,8 +60,32 @@ export default function Discover() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [flexibilityModalOpen, setFlexibilityModalOpen] = useState(false);
   const [selectedFlexDestination, setSelectedFlexDestination] = useState<DestinationMatch | null>(null);
+  const [hasSearchedFlights, setHasSearchedFlights] = useState(false);
   
-  // Match destinations based on user criteria from Zustand store
+  // Auto-fetch real flight data when the page loads
+  useEffect(() => {
+    const startDate = tripSearch.dates.start;
+    const endDate = tripSearch.dates.end;
+    const departureCity = tripSearch.departureCity;
+    
+    // Only search if we have valid inputs and haven't already searched
+    if (startDate && endDate && departureCity && !hasSearchedFlights && !flightSearch.isLoading) {
+      const originCode = getAirportCode(departureCity);
+      if (originCode) {
+        console.log('Searching real flights from:', departureCity, '→', CANDIDATE_DESTINATIONS);
+        flightSearch.searchFlights(
+          departureCity,
+          startDate,
+          endDate,
+          tripSearch.travelers,
+          [...CANDIDATE_DESTINATIONS]
+        );
+        setHasSearchedFlights(true);
+      }
+    }
+  }, [tripSearch.dates.start, tripSearch.dates.end, tripSearch.departureCity, tripSearch.travelers, hasSearchedFlights, flightSearch.isLoading]);
+  
+  // Match destinations based on user criteria + real flight data from Zustand store
   const matches = useMemo(() => {
     const startDate = tripSearch.dates.start || new Date();
     const endDate = tripSearch.dates.end || new Date(Date.now() + tripSearch.days * 24 * 60 * 60 * 1000);
@@ -69,8 +97,16 @@ export default function Discover() {
       travelers: tripSearch.travelers,
       tripStyle: tripSearch.travelStyle === 'relaxation' ? 'luxury' : 
                  tripSearch.travelStyle === 'adventure' ? 'budget' : 'mid',
+      flightData: flightSearch.results.size > 0 ? flightSearch.results : undefined,
     });
-  }, [tripSearch.budget, tripSearch.dates, tripSearch.days, tripSearch.travelers, tripSearch.travelStyle]);
+  }, [
+    tripSearch.budget, 
+    tripSearch.dates, 
+    tripSearch.days, 
+    tripSearch.travelers, 
+    tripSearch.travelStyle,
+    flightSearch.results
+  ]);
   
   // Apply sidebar filters
   const filteredDestinations = useMemo(() => {
@@ -124,7 +160,7 @@ export default function Discover() {
         filtered.sort((a, b) => b.confidenceScore - a.confidenceScore);
         break;
       case 'flight-time':
-        filtered.sort((a, b) => a.flightCost - b.flightCost); // Using flight cost as proxy
+        filtered.sort((a, b) => a.flightCost - b.flightCost);
         break;
       case 'value':
       default:
@@ -133,6 +169,25 @@ export default function Discover() {
     
     return filtered;
   }, [matches, filters]);
+  
+  const handleRefreshFlights = async () => {
+    flightSearch.clearCache();
+    setHasSearchedFlights(false);
+    
+    const startDate = tripSearch.dates.start;
+    const endDate = tripSearch.dates.end;
+    
+    if (startDate && endDate && tripSearch.departureCity) {
+      await flightSearch.searchFlights(
+        tripSearch.departureCity,
+        startDate,
+        endDate,
+        tripSearch.travelers,
+        [...CANDIDATE_DESTINATIONS]
+      );
+      setHasSearchedFlights(true);
+    }
+  };
   
   const toggleCompare = (destination: DestinationMatch) => {
     setCompareList(prev => {
@@ -152,7 +207,6 @@ export default function Discover() {
   const handleSelectDestination = (destination: DestinationMatch) => {
     setShowComparison(false);
     setDestination(destination);
-    // Navigate to budget allocation page
     navigate(`/trip/${destination.id}/budget`);
   };
   
@@ -173,6 +227,23 @@ export default function Discover() {
     />
   );
   
+  // Show loading state when fetching flights
+  if (flightSearch.isLoading && !matches.length) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <SearchingAnimation />
+          <div className="space-y-2">
+            <p className="text-lg font-medium text-foreground">Searching real flights...</p>
+            <p className="text-sm text-muted-foreground">
+              Checking prices from {tripSearch.departureCity || 'your city'} to {CANDIDATE_DESTINATIONS.length} destinations
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
@@ -186,6 +257,37 @@ export default function Discover() {
           </div>
           
           <div className="flex items-center gap-3">
+            {/* Flight data status */}
+            {flightSearch.results.size > 0 && (
+              <div className="hidden md:flex items-center gap-2">
+                {flightSearch.hasMockData ? (
+                  <Badge variant="outline" className="text-xs gap-1">
+                    <Plane className="h-3 w-3" />
+                    Estimated prices
+                  </Badge>
+                ) : (
+                  <Badge className="bg-green-500/10 text-green-600 border-green-500/20 text-xs gap-1">
+                    <Plane className="h-3 w-3" />
+                    Live prices
+                  </Badge>
+                )}
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={handleRefreshFlights}
+                  disabled={flightSearch.isLoading}
+                  className="text-xs gap-1"
+                >
+                  {flightSearch.isLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-3 w-3" />
+                  )}
+                  Refresh
+                </Button>
+              </div>
+            )}
+            
             {/* Mobile filter button */}
             <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
               <SheetTrigger asChild>
@@ -227,6 +329,31 @@ export default function Discover() {
           onEdit={() => navigate('/')}
         />
         
+        {/* Flight search error */}
+        {flightSearch.error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center gap-3"
+          >
+            <span className="text-yellow-600">⚠️</span>
+            <div>
+              <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                Could not fetch live flight prices. Showing estimated prices instead.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">{flightSearch.error}</p>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefreshFlights}
+              className="ml-auto"
+            >
+              Retry
+            </Button>
+          </motion.div>
+        )}
+        
         {/* Main Layout */}
         <div className="flex gap-6">
           {/* Sidebar (Desktop) */}
@@ -237,35 +364,49 @@ export default function Discover() {
           {/* Destination Grid */}
           <div className="flex-1">
             {filteredDestinations.length > 0 ? (
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
-                className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-              >
-                <AnimatePresence mode="popLayout">
-                  {filteredDestinations.map((destination) => (
-                    <motion.div
-                      key={destination.id}
-                      variants={itemVariants}
-                      layout
-                    >
-                      <DestinationCard
-                        destination={destination}
-                        isSelected={compareList.some(d => d.id === destination.id)}
-                        onSelect={() => handleSelectDestination(destination)}
-                        onCompare={() => toggleCompare(destination)}
-                        onViewDetails={() => handleSelectDestination(destination)}
-                        onFlexibleDates={() => {
-                          setSelectedFlexDestination(destination);
-                          setFlexibilityModalOpen(true);
-                        }}
-                        compareCount={compareList.length}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </motion.div>
+              <>
+                {/* Loading overlay when refreshing */}
+                {flightSearch.isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg flex items-center gap-3"
+                  >
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-sm">Updating flight prices...</span>
+                  </motion.div>
+                )}
+                
+                <motion.div
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="show"
+                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+                >
+                  <AnimatePresence mode="popLayout">
+                    {filteredDestinations.map((destination) => (
+                      <motion.div
+                        key={destination.id}
+                        variants={itemVariants}
+                        layout
+                      >
+                        <DestinationCard
+                          destination={destination}
+                          isSelected={compareList.some(d => d.id === destination.id)}
+                          onSelect={() => handleSelectDestination(destination)}
+                          onCompare={() => toggleCompare(destination)}
+                          onViewDetails={() => handleSelectDestination(destination)}
+                          onFlexibleDates={() => {
+                            setSelectedFlexDestination(destination);
+                            setFlexibilityModalOpen(true);
+                          }}
+                          compareCount={compareList.length}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              </>
             ) : (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -322,7 +463,7 @@ export default function Discover() {
           currentPrice={selectedFlexDestination.estimatedTotalCost}
           baseFlightPrice={selectedFlexDestination.flightCost}
           baseHotelPrice={selectedFlexDestination.accommodationCost}
-          onUpdateDates={(newDates, newPrice) => {
+          onUpdateDates={(newDates) => {
             tripSearch.setDates(newDates.start, newDates.end);
             setFlexibilityModalOpen(false);
           }}
