@@ -1,6 +1,8 @@
 import { Destination, DestinationMatch } from '@/types/destination';
 import { destinations } from '@/data/destinations';
 import { getFlagEmoji } from '@/data/countryFlags';
+import { FlightSearchResult, getCheapestPrice } from '@/services/serpapi';
+import { getAirportCode } from '@/utils/airports';
 
 interface MatchCriteria {
   budget: number;           // Total trip budget
@@ -9,6 +11,10 @@ interface MatchCriteria {
   travelers: number;
   tripStyle: 'budget' | 'mid' | 'luxury';
   interests?: string[];
+}
+
+interface MatchCriteriaWithFlights extends MatchCriteria {
+  flightData?: Map<string, FlightSearchResult>;
 }
 
 // Calculate number of nights
@@ -87,33 +93,36 @@ const generateInsight = (
   destination: Destination, 
   budgetRatio: number, 
   weatherScore: number, 
-  crowdScore: number
+  crowdScore: number,
+  hasRealFlightData: boolean
 ): string => {
   const insights: string[] = [];
   
+  if (hasRealFlightData) {
+    insights.push('Live flight prices');
+  }
+  
   if (budgetRatio <= 0.6) {
-    insights.push('Excellent value for money');
+    insights.push('excellent value');
   } else if (budgetRatio <= 0.75) {
-    insights.push('Great savings potential');
+    insights.push('great savings potential');
   }
   
   if (weatherScore >= 80) {
-    insights.push('perfect weather for your dates');
+    insights.push('perfect weather');
   } else if (weatherScore >= 60) {
-    insights.push('pleasant weather expected');
+    insights.push('pleasant weather');
   }
   
   if (crowdScore >= 80) {
-    insights.push('off-peak season means fewer crowds');
-  } else if (crowdScore >= 60) {
-    insights.push('moderate tourist levels');
+    insights.push('fewer crowds');
   }
   
-  if (destination.bestFor.length > 0) {
+  if (destination.bestFor.length > 0 && insights.length < 3) {
     insights.push(`ideal for ${destination.bestFor[0].toLowerCase()}`);
   }
   
-  return insights.slice(0, 2).join(' with ') || `Discover ${destination.name}'s unique charm`;
+  return insights.slice(0, 3).join(' • ') || `Discover ${destination.name}'s unique charm`;
 };
 
 // Calculate confidence score based on data quality and match
@@ -121,14 +130,20 @@ const calculateConfidenceScore = (
   weatherScore: number,
   crowdScore: number,
   budgetRatio: number,
-  destination: Destination
+  destination: Destination,
+  hasRealFlightData: boolean
 ): number => {
   // Base score from weather and crowd predictions
   let score = (weatherScore * 0.3) + (crowdScore * 0.2);
   
   // Add points for well-known destinations with reliable data
-  const popularDestinations = ['lisbon', 'barcelona', 'tokyo', 'paris', 'rome', 'cancun'];
+  const popularDestinations = ['lisbon', 'barcelona', 'tokyo', 'paris', 'rome', 'cancun', 'marrakech'];
   if (popularDestinations.includes(destination.id)) {
+    score += 10;
+  }
+  
+  // Real flight data significantly boosts confidence
+  if (hasRealFlightData) {
     score += 15;
   }
   
@@ -143,20 +158,42 @@ const calculateConfidenceScore = (
   return Math.min(98, Math.max(70, Math.round(score)));
 };
 
-// Main matching function
-export const matchDestinations = (criteria: MatchCriteria): DestinationMatch[] => {
+// Map destination name to airport code
+const getDestinationAirportCode = (destination: Destination): string | null => {
+  return getAirportCode(destination.name);
+};
+
+// Main matching function with optional real flight data
+export const matchDestinations = (criteria: MatchCriteriaWithFlights): DestinationMatch[] => {
   const nights = getNights(criteria.startDate, criteria.endDate);
-  const perPersonBudget = criteria.budget / criteria.travelers;
+  const { flightData } = criteria;
   
   return destinations
     .map(destination => {
-      // Calculate costs
+      // Try to get real flight price
+      const destCode = getDestinationAirportCode(destination);
+      const realFlightResult = destCode && flightData ? flightData.get(destCode) : null;
+      const hasRealFlightData = realFlightResult && !realFlightResult.useMock && realFlightResult.options.length > 0;
+      
+      // Use real flight price if available, otherwise fallback to static cost
+      let flightCost: number;
+      if (hasRealFlightData && realFlightResult) {
+        // Use mid-tier flight (recommended) for calculations
+        const midFlight = realFlightResult.options.find(o => o.tier === 'mid');
+        flightCost = midFlight?.price || getCheapestPrice(realFlightResult);
+      } else {
+        flightCost = destination.costs.flight;
+      }
+      
+      // Calculate other costs
       const dailyCost = destination.costs[criteria.tripStyle];
-      const flightCost = destination.costs.flight;
       const accommodationCost = dailyCost * nights * 0.5; // ~50% on accommodation
       const activitiesCost = dailyCost * nights * 0.3;    // ~30% on activities
       const foodCost = dailyCost * nights * 0.2;          // ~20% on food
-      const estimatedTotalCost = (flightCost + (dailyCost * nights)) * criteria.travelers;
+      
+      // Total cost per person then multiply by travelers
+      const perPersonCost = flightCost + (dailyCost * nights);
+      const estimatedTotalCost = perPersonCost * criteria.travelers;
       
       // Calculate scores
       const weatherScore = calculateWeatherScore(destination, criteria.startDate, criteria.endDate);
@@ -198,10 +235,22 @@ export const matchDestinations = (criteria: MatchCriteria): DestinationMatch[] =
       const budgetDelta = criteria.budget - estimatedTotalCost;
       
       // Confidence score
-      const confidenceScore = calculateConfidenceScore(weatherScore, crowdScore, budgetRatio, destination);
+      const confidenceScore = calculateConfidenceScore(
+        weatherScore, 
+        crowdScore, 
+        budgetRatio, 
+        destination,
+        !!hasRealFlightData
+      );
       
       // Generate insight
-      const whyThisWorks = generateInsight(destination, budgetRatio, weatherScore, crowdScore);
+      const whyThisWorks = generateInsight(
+        destination, 
+        budgetRatio, 
+        weatherScore, 
+        crowdScore,
+        !!hasRealFlightData
+      );
       
       return {
         ...destination,
@@ -228,13 +277,26 @@ export const matchDestinations = (criteria: MatchCriteria): DestinationMatch[] =
 };
 
 // Get ghost trips (slightly over budget)
-export const getGhostTrips = (criteria: MatchCriteria): DestinationMatch[] => {
+export const getGhostTrips = (criteria: MatchCriteriaWithFlights): DestinationMatch[] => {
   const nights = getNights(criteria.startDate, criteria.endDate);
+  const { flightData } = criteria;
   
   return destinations
     .map(destination => {
+      // Try to get real flight price
+      const destCode = getDestinationAirportCode(destination);
+      const realFlightResult = destCode && flightData ? flightData.get(destCode) : null;
+      const hasRealFlightData = realFlightResult && !realFlightResult.useMock && realFlightResult.options.length > 0;
+      
+      let flightCost: number;
+      if (hasRealFlightData && realFlightResult) {
+        const midFlight = realFlightResult.options.find(o => o.tier === 'mid');
+        flightCost = midFlight?.price || getCheapestPrice(realFlightResult);
+      } else {
+        flightCost = destination.costs.flight;
+      }
+      
       const dailyCost = destination.costs[criteria.tripStyle];
-      const flightCost = destination.costs.flight;
       const accommodationCost = dailyCost * nights * 0.5;
       const activitiesCost = dailyCost * nights * 0.3;
       const foodCost = dailyCost * nights * 0.2;
@@ -244,8 +306,14 @@ export const getGhostTrips = (criteria: MatchCriteria): DestinationMatch[] => {
       const crowdScore = calculateCrowdScore(destination, criteria.startDate, criteria.endDate);
       const budgetRatio = estimatedTotalCost / criteria.budget;
       const budgetDelta = criteria.budget - estimatedTotalCost;
-      const confidenceScore = calculateConfidenceScore(weatherScore, crowdScore, budgetRatio, destination);
-      const whyThisWorks = generateInsight(destination, budgetRatio, weatherScore, crowdScore);
+      const confidenceScore = calculateConfidenceScore(
+        weatherScore, 
+        crowdScore, 
+        budgetRatio, 
+        destination,
+        !!hasRealFlightData
+      );
+      const whyThisWorks = generateInsight(destination, budgetRatio, weatherScore, crowdScore, !!hasRealFlightData);
       
       const valueScore = Math.round(
         (Math.max(0, 100 - (budgetRatio * 80)) * 0.4) + 
@@ -282,7 +350,7 @@ export const getGhostTrips = (criteria: MatchCriteria): DestinationMatch[] => {
 };
 
 // Get top recommendations with different criteria
-export const getRecommendations = (criteria: MatchCriteria) => {
+export const getRecommendations = (criteria: MatchCriteriaWithFlights) => {
   const matches = matchDestinations(criteria);
   
   return {
