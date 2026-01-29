@@ -67,39 +67,43 @@ export default function RealTimeBudgetAllocation() {
       return;
     }
 
-    const matches = matchDestinations({
-      budget: tripSearch.budget,
-      startDate: tripSearch.dates.start,
-      endDate: tripSearch.dates.end,
-      travelers: tripSearch.travelers,
-      tripStyle: 'mid',
-    });
+    // First check if we have valid dates for matching
+    if (tripSearch.dates.start && tripSearch.dates.end) {
+      const matches = matchDestinations({
+        budget: tripSearch.budget,
+        startDate: tripSearch.dates.start,
+        endDate: tripSearch.dates.end,
+        travelers: tripSearch.travelers,
+        tripStyle: 'mid',
+      });
 
-    const found = matches.find((d) => d.id === destinationId);
-    if (found) {
-      setDestination(found);
-    } else {
-      // Fallback to destinations data
-      const fallback = destinations.find((d) => d.id === destinationId);
-      if (fallback) {
-        setDestination({
-          ...fallback,
-          valueScore: 75,
-          estimatedTotalCost: tripSearch.budget * 0.85,
-          dailyCost: Math.round((tripSearch.budget * 0.85) / (tripSearch.days || 7)),
-          flightCost: 500,
-          accommodationCost: 600,
-          activitiesCost: 400,
-          foodCost: 350,
-          weatherScore: 80,
-          crowdScore: 70,
-          confidenceScore: 75,
-          affordability: 'good-value',
-          budgetDelta: tripSearch.budget * 0.15,
-          whyThisWorks: 'Great value destination',
-          flagEmoji: '🌍',
-        });
+      const found = matches.find((d) => d.id === destinationId);
+      if (found) {
+        setDestination(found);
+        return;
       }
+    }
+    
+    // Fallback to destinations data if no match or no dates
+    const fallback = destinations.find((d) => d.id === destinationId);
+    if (fallback) {
+      setDestination({
+        ...fallback,
+        valueScore: 75,
+        estimatedTotalCost: tripSearch.budget * 0.85,
+        dailyCost: Math.round((tripSearch.budget * 0.85) / (tripSearch.days || 7)),
+        flightCost: 500,
+        accommodationCost: 600,
+        activitiesCost: 400,
+        foodCost: 350,
+        weatherScore: 80,
+        crowdScore: 70,
+        confidenceScore: 75,
+        affordability: 'good-value',
+        budgetDelta: tripSearch.budget * 0.15,
+        whyThisWorks: 'Great value destination',
+        flagEmoji: '🌍',
+      });
     }
   }, [destinationId, tripSearch, navigate]);
 
