@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getAirportCode, getCityFromCode, CANDIDATE_DESTINATIONS } from '@/utils/airports';
+import { shouldUseMockData } from '@/config/apiSettings';
 
 // Types for flight data
 export interface FlightOption {
@@ -183,6 +184,21 @@ export async function fetchFlightOptions(
   const cached = getFromCache(cacheKey);
   if (cached) {
     return cached;
+  }
+  
+  // Check if we should use mock data to save API credits
+  if (shouldUseMockData()) {
+    console.log(`Using mock data for ${origin} → ${destination} (API calls disabled)`);
+    const mockResult: FlightSearchResult = {
+      origin,
+      destination,
+      options: generateMockFlights(origin, destination, 450 + Math.random() * 300),
+      searchUrl: `https://www.google.com/travel/flights?q=flights+from+${origin}+to+${destination}`,
+      searchDate: new Date().toISOString(),
+      useMock: true,
+    };
+    setCache(cacheKey, mockResult);
+    return mockResult;
   }
   
   try {
