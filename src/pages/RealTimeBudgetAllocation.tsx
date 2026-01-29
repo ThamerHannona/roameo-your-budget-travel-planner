@@ -159,11 +159,15 @@ export default function RealTimeBudgetAllocation() {
     const result = flightResults.get(destinationCode);
     if (!result?.options?.length) return;
 
+    const travelers = tripSearch.travelers || 1;
+    
     // Map SerpAPI flight options to store format
+    // Store total price (per-person × travelers) but keep perPersonPrice for display
     const mappedOptions: FlightOption[] = result.options.map((opt, index) => ({
       airline: opt.airline,
       flightNumber: opt.flightNumber,
-      price: opt.price,
+      price: opt.price * travelers, // Total price for all travelers
+      pricePerPerson: opt.price, // Keep per-person for display
       duration: opt.duration,
       stops: opt.layovers,
       layover: opt.layoverDuration || undefined,
@@ -368,6 +372,7 @@ export default function RealTimeBudgetAllocation() {
                 selectedPrice={constraints.flights.current}
                 onSelect={handleCategoryChange('flights')}
                 totalBudget={destinationBudget.totalBudget}
+                travelers={tripSearch.travelers}
               />
             </motion.div>
 

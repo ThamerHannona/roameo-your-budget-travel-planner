@@ -10,6 +10,7 @@ interface FlightTierSelectorProps {
   selectedPrice: number;
   onSelect: (price: number) => void;
   totalBudget: number;
+  travelers?: number;
 }
 
 const tierConfig: Record<string, { label: string; badge: string; color: string }> = {
@@ -35,6 +36,7 @@ export function FlightTierSelector({
   selectedPrice,
   onSelect,
   totalBudget,
+  travelers = 1,
 }: FlightTierSelectorProps) {
   if (options.length === 0) {
     return (
@@ -161,9 +163,14 @@ export function FlightTierSelector({
                     <p className="text-xl font-bold text-foreground">
                       ${flight.price.toLocaleString()}
                     </p>
+                    {travelers > 1 && flight.pricePerPerson && (
+                      <p className="text-xs text-muted-foreground">
+                        ${flight.pricePerPerson.toLocaleString()}/person × {travelers}
+                      </p>
+                    )}
                     {savings && (
                       <p className="text-xs text-muted-foreground">
-                        +${savings} vs budget
+                        +${savings.toLocaleString()} vs budget
                       </p>
                     )}
                   </div>

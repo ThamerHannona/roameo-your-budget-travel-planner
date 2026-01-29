@@ -3,7 +3,8 @@
 export interface FlightOption {
   airline: string;
   flightNumber: string;
-  price: number;
+  price: number; // Total price for all travelers
+  pricePerPerson?: number; // Per-person price for display
   duration: string;
   stops: number;
   layover?: string;
