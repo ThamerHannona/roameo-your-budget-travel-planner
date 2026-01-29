@@ -15,10 +15,12 @@ interface BudgetConstraintsState {
   destinationBudget: DestinationBudget;
   recentChanges: BudgetChange[];
   isLocked: boolean;
+  hasRealFlightData: boolean;
 }
 
 interface BudgetConstraintsActions {
   setDestinationBudget: (budget: DestinationBudget) => void;
+  setFlightOptions: (options: FlightOption[]) => void;
   updateCategory: (category: CategoryKey, value: number) => void;
   getPercentage: (category: CategoryKey) => number;
   getTotalAllocated: () => number;
@@ -138,6 +140,7 @@ const initialState: BudgetConstraintsState = {
   destinationBudget: marrakechBudgetData,
   recentChanges: [],
   isLocked: false,
+  hasRealFlightData: false,
 };
 
 export const useBudgetConstraintsStore = create<
@@ -148,6 +151,38 @@ export const useBudgetConstraintsStore = create<
       ...initialState,
 
       setDestinationBudget: (budget) => set({ destinationBudget: budget }),
+
+      setFlightOptions: (options) => {
+        if (options.length === 0) return;
+        
+        const { destinationBudget } = get();
+        const constraints = destinationBudget.constraints;
+        
+        // Calculate min/max from options
+        const prices = options.map(o => o.price);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        
+        // Find budget tier (cheapest) as default selection
+        const budgetOption = options.reduce((min, o) => o.price < min.price ? o : min, options[0]);
+        
+        set({
+          hasRealFlightData: true,
+          destinationBudget: {
+            ...destinationBudget,
+            constraints: {
+              ...constraints,
+              flights: {
+                ...constraints.flights,
+                min: minPrice,
+                max: maxPrice,
+                current: budgetOption.price,
+                options,
+              },
+            },
+          },
+        });
+      },
 
       updateCategory: (category, value) => {
         const { destinationBudget, recentChanges } = get();
@@ -325,6 +360,7 @@ export const useBudgetConstraintsStore = create<
       partialize: (state) => ({
         destinationBudget: state.destinationBudget,
         isLocked: state.isLocked,
+        hasRealFlightData: state.hasRealFlightData,
       }),
     }
   )
