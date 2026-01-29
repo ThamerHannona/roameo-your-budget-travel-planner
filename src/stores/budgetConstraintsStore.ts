@@ -16,11 +16,13 @@ interface BudgetConstraintsState {
   recentChanges: BudgetChange[];
   isLocked: boolean;
   hasRealFlightData: boolean;
+  hasRealHotelData: boolean;
 }
 
 interface BudgetConstraintsActions {
   setDestinationBudget: (budget: DestinationBudget) => void;
   setFlightOptions: (options: FlightOption[]) => void;
+  setHotelOptions: (tiers: HotelTier[]) => void;
   updateCategory: (category: CategoryKey, value: number) => void;
   getPercentage: (category: CategoryKey) => number;
   getTotalAllocated: () => number;
@@ -141,6 +143,7 @@ const initialState: BudgetConstraintsState = {
   recentChanges: [],
   isLocked: false,
   hasRealFlightData: false,
+  hasRealHotelData: false,
 };
 
 export const useBudgetConstraintsStore = create<
@@ -178,6 +181,38 @@ export const useBudgetConstraintsStore = create<
                 max: maxPrice,
                 current: budgetOption.price,
                 options,
+              },
+            },
+          },
+        });
+      },
+
+      setHotelOptions: (tiers) => {
+        if (tiers.length === 0) return;
+        
+        const { destinationBudget } = get();
+        const constraints = destinationBudget.constraints;
+        
+        // Calculate min/max from tiers
+        const prices = tiers.map(t => t.totalPrice);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        
+        // Find budget tier (cheapest) as default selection
+        const budgetTier = tiers.reduce((min, t) => t.totalPrice < min.totalPrice ? t : min, tiers[0]);
+        
+        set({
+          hasRealHotelData: true,
+          destinationBudget: {
+            ...destinationBudget,
+            constraints: {
+              ...constraints,
+              hotels: {
+                ...constraints.hotels,
+                min: minPrice,
+                max: maxPrice,
+                current: budgetTier.totalPrice,
+                tiers,
               },
             },
           },
@@ -361,6 +396,7 @@ export const useBudgetConstraintsStore = create<
         destinationBudget: state.destinationBudget,
         isLocked: state.isLocked,
         hasRealFlightData: state.hasRealFlightData,
+        hasRealHotelData: state.hasRealHotelData,
       }),
     }
   )
