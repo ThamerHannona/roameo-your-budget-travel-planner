@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -30,6 +30,7 @@ import { Logo } from '@/components/Logo';
 import { useItineraryStore } from '@/stores/itineraryStore';
 import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
+import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
 import { cn } from '@/lib/utils';
 
 interface BookingItem {
@@ -52,36 +53,90 @@ export default function FinalBooking() {
   const [bookedItems, setBookedItems] = useState<Set<string>>(new Set());
   const [showConfetti, setShowConfetti] = useState(false);
 
-  const { days, destination, tripDates, totalBudget } = useItineraryStore();
+  const { days, destination: itineraryDestination, tripDates, totalBudget, initializeItinerary } = useItineraryStore();
   const { destination: selectedDestination } = useSelectedDestinationStore();
-  const { travelers } = useTripSearchStore();
+  const tripSearch = useTripSearchStore();
+  const { destinationBudget, getSelectedFlight, getSelectedHotel } = useBudgetConstraintsStore();
+  
+  const travelers = tripSearch.travelers || 1;
+
+  // Get the correct destination - prefer selected destination, then itinerary destination
+  const destination = selectedDestination ? {
+    name: selectedDestination.name,
+    country: selectedDestination.country,
+    imageUrl: selectedDestination.imageUrl,
+    coordinates: selectedDestination.coordinates || { lat: 0, lng: 0 },
+  } : itineraryDestination;
+
+  // Sync destination with URL if mismatch
+  useEffect(() => {
+    if (destinationId && selectedDestination) {
+      const urlDestination = destinationId.replace(/-/g, ' ').toLowerCase();
+      const storeDestination = selectedDestination.name.toLowerCase();
+      
+      if (urlDestination !== storeDestination && itineraryDestination.name.toLowerCase() !== storeDestination) {
+        // Re-initialize itinerary with correct destination
+        const startDate = tripSearch.dates.start || new Date();
+        const endDate = tripSearch.dates.end || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        
+        initializeItinerary(
+          {
+            name: selectedDestination.name,
+            country: selectedDestination.country,
+            imageUrl: selectedDestination.imageUrl,
+            coordinates: selectedDestination.coordinates || { lat: 0, lng: 0 },
+          },
+          startDate,
+          endDate,
+          destinationBudget.totalBudget,
+          travelers
+        );
+      }
+    }
+  }, [destinationId, selectedDestination, itineraryDestination.name, initializeItinerary, tripSearch, destinationBudget.totalBudget, travelers]);
+
+  // Get actual selected flight and hotel from budget constraints store
+  const selectedFlight = getSelectedFlight();
+  const selectedHotel = getSelectedHotel();
+
+  // Get real flight cost (already includes all travelers)
+  const flightCost = selectedFlight?.price || destinationBudget.constraints.flights.current || 0;
+  
+  // Get real hotel cost
+  const hotelCost = selectedHotel?.totalPrice || destinationBudget.constraints.hotels.current || 0;
+
+  // Calculate nights
+  const nights = Math.ceil(
+    (tripDates.end.getTime() - tripDates.start.getTime()) / (1000 * 60 * 60 * 24)
+  );
 
   // Extract bookable items from itinerary
   const bookingItems: BookingItem[] = [];
   
-  // Add sample flight bookings
+  // Add flight booking with real data
   bookingItems.push({
     id: 'flight-outbound',
     type: 'flight',
     name: `Flight to ${destination.name}`,
-    description: 'Round-trip economy • Multiple airlines available',
-    price: selectedDestination?.flightCost || 450,
+    description: selectedFlight 
+      ? `${selectedFlight.airline} • ${selectedFlight.duration} • ${selectedFlight.stops === 0 ? 'Direct' : `${selectedFlight.stops} stop(s)`}`
+      : 'Round-trip economy • Multiple airlines available',
+    price: flightCost,
     bookingUrl: 'https://www.google.com/travel/flights',
     isBooked: bookedItems.has('flight-outbound'),
     date: tripDates.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     provider: 'Google Flights',
   });
 
-  // Add hotel booking
-  const nights = Math.ceil(
-    (tripDates.end.getTime() - tripDates.start.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  // Add hotel booking with real data
   bookingItems.push({
     id: 'hotel-stay',
     type: 'hotel',
-    name: `${nights}-night hotel stay`,
-    description: `${destination.name} • Various options available`,
-    price: (selectedDestination?.accommodationCost || 500) / travelers,
+    name: selectedHotel ? `${selectedHotel.tier} - ${nights}-night stay` : `${nights}-night hotel stay`,
+    description: selectedHotel 
+      ? `${selectedHotel.name} • ${selectedHotel.amenities.slice(0, 2).join(', ')}`
+      : `${destination.name} • Various options available`,
+    price: hotelCost,
     bookingUrl: 'https://www.booking.com',
     isBooked: bookedItems.has('hotel-stay'),
     provider: 'Booking.com',
@@ -107,17 +162,13 @@ export default function FinalBooking() {
     });
   });
 
-  // Calculate totals
-  const flightTotal = bookingItems
-    .filter(i => i.type === 'flight')
-    .reduce((sum, i) => sum + i.price, 0);
-  const hotelTotal = bookingItems
-    .filter(i => i.type === 'hotel')
-    .reduce((sum, i) => sum + i.price, 0);
+  // Calculate totals - flight already includes all travelers
+  const flightTotal = flightCost;
+  const hotelTotal = hotelCost;
   const activityTotal = bookingItems
     .filter(i => i.type === 'activity')
-    .reduce((sum, i) => sum + i.price, 0);
-  const grandTotal = (flightTotal + hotelTotal + activityTotal) * travelers;
+    .reduce((sum, i) => sum + i.price, 0) * travelers;
+  const grandTotal = flightTotal + hotelTotal + activityTotal;
 
   const bookedCount = bookedItems.size;
   const progress = (bookedCount / bookingItems.length) * 100;
