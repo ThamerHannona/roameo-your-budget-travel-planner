@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Lock, RotateCcw, ChevronDown, Sparkles } from 'lucide-react';
+import { ArrowLeft, Lock, RotateCcw, ChevronDown, Sparkles, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -18,10 +18,12 @@ import { PaywallModal } from '@/components/paywall';
 import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
 import { usePaymentStore } from '@/stores/paymentStore';
+import { useFlightSearch } from '@/hooks/useFlightSearch';
+import { getAirportCode } from '@/utils/airports';
 import { matchDestinations } from '@/lib/destinationMatcher';
 import { destinations } from '@/data/destinations';
 import { budgetPresets } from '@/data/mockBudgetData';
-import type { CategoryKey } from '@/types/budgetConstraints';
+import type { CategoryKey, FlightOption } from '@/types/budgetConstraints';
 import type { DestinationMatch } from '@/types/destination';
 import { useToast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
@@ -47,7 +49,16 @@ export default function RealTimeBudgetAllocation() {
     applyPreset,
     resetToDefaults,
     lockBudget,
+    setFlightOptions,
   } = useBudgetConstraintsStore();
+
+  // Real flight search
+  const { 
+    results: flightResults, 
+    isLoading: flightsLoading, 
+    hasMockData,
+    searchFlights 
+  } = useFlightSearch();
 
   // Load destination
   useEffect(() => {
@@ -91,6 +102,52 @@ export default function RealTimeBudgetAllocation() {
       }
     }
   }, [destinationId, tripSearch, navigate]);
+
+  // Fetch real flight data when destination is loaded
+  useEffect(() => {
+    if (!destination || !tripSearch.departureCity || !tripSearch.dates.start || !tripSearch.dates.end) {
+      return;
+    }
+
+    const destinationCode = getAirportCode(destination.name);
+    if (!destinationCode) return;
+
+    // Fetch flights for this specific destination
+    searchFlights(
+      tripSearch.departureCity,
+      tripSearch.dates.start,
+      tripSearch.dates.end,
+      tripSearch.travelers,
+      [destinationCode]
+    );
+  }, [destination, tripSearch.departureCity, tripSearch.dates.start, tripSearch.dates.end, tripSearch.travelers, searchFlights]);
+
+  // Map real flight results to store format
+  useEffect(() => {
+    if (!destination) return;
+    
+    const destinationCode = getAirportCode(destination.name);
+    if (!destinationCode) return;
+
+    const result = flightResults.get(destinationCode);
+    if (!result?.options?.length) return;
+
+    // Map SerpAPI flight options to store format
+    const mappedOptions: FlightOption[] = result.options.map((opt, index) => ({
+      airline: opt.airline,
+      flightNumber: opt.flightNumber,
+      price: opt.price,
+      duration: opt.duration,
+      stops: opt.layovers,
+      layover: opt.layoverDuration || undefined,
+      direct: opt.layovers === 0,
+    }));
+
+    // Sort by price and assign tiers
+    const sortedOptions = [...mappedOptions].sort((a, b) => a.price - b.price);
+    
+    setFlightOptions(sortedOptions);
+  }, [destination, flightResults, setFlightOptions]);
 
   const handleCategoryChange = useCallback(
     (category: CategoryKey) => (value: number) => {
@@ -206,6 +263,26 @@ export default function RealTimeBudgetAllocation() {
               animate={{ opacity: 1, y: 0 }}
               className="rounded-xl bg-card border border-border p-5"
             >
+              {/* Live/Mock data indicator */}
+              <div className="flex items-center justify-end gap-2 mb-3">
+                {flightsLoading ? (
+                  <Badge variant="outline" className="text-xs animate-pulse">
+                    <Wifi className="h-3 w-3 mr-1" />
+                    Loading live prices...
+                  </Badge>
+                ) : hasMockData ? (
+                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                    <WifiOff className="h-3 w-3 mr-1" />
+                    Estimated prices
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs text-success border-success/30">
+                    <Wifi className="h-3 w-3 mr-1" />
+                    Live prices
+                  </Badge>
+                )}
+              </div>
+              
               <FlightTierSelector
                 options={constraints.flights.options}
                 selectedPrice={constraints.flights.current}
