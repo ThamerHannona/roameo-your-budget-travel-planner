@@ -97,6 +97,7 @@ export default function Discover() {
       travelers: tripSearch.travelers,
       tripStyle: tripSearch.travelStyle === 'relaxation' ? 'luxury' : 
                  tripSearch.travelStyle === 'adventure' ? 'budget' : 'mid',
+      regions: tripSearch.regions,
       flightData: flightSearch.results.size > 0 ? flightSearch.results : undefined,
     });
   }, [
@@ -105,6 +106,7 @@ export default function Discover() {
     tripSearch.days, 
     tripSearch.travelers, 
     tripSearch.travelStyle,
+    tripSearch.regions,
     flightSearch.results
   ]);
   

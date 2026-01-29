@@ -3,6 +3,7 @@ import { destinations } from '@/data/destinations';
 import { getFlagEmoji } from '@/data/countryFlags';
 import { FlightSearchResult, getCheapestPrice } from '@/services/serpapi';
 import { getAirportCode } from '@/utils/airports';
+import { TravelRegion } from '@/stores/tripSearchStore';
 
 interface MatchCriteria {
   budget: number;           // Total trip budget
@@ -11,6 +12,7 @@ interface MatchCriteria {
   travelers: number;
   tripStyle: 'budget' | 'mid' | 'luxury';
   interests?: string[];
+  regions?: TravelRegion[];  // Selected regions to filter by
 }
 
 interface MatchCriteriaWithFlights extends MatchCriteria {
@@ -163,12 +165,36 @@ const getDestinationAirportCode = (destination: Destination): string | null => {
   return getAirportCode(destination.name);
 };
 
+// Map region names to match destination data
+const mapRegionToDestination = (region: TravelRegion): string[] => {
+  switch (region) {
+    case 'europe': return ['Europe'];
+    case 'asia': return ['Asia'];
+    case 'americas': return ['North America', 'South America', 'Central America', 'Caribbean'];
+    case 'africa': return ['Africa'];
+    case 'oceania': return ['Oceania'];
+    case 'anywhere': return [];
+    default: return [];
+  }
+};
+
 // Main matching function with optional real flight data
 export const matchDestinations = (criteria: MatchCriteriaWithFlights): DestinationMatch[] => {
   const nights = getNights(criteria.startDate, criteria.endDate);
-  const { flightData } = criteria;
+  const { flightData, regions } = criteria;
   
-  return destinations
+  // Get allowed regions for filtering
+  const allowedRegions: string[] = [];
+  if (regions && regions.length > 0 && !regions.includes('anywhere')) {
+    regions.forEach(r => allowedRegions.push(...mapRegionToDestination(r)));
+  }
+  
+  // Filter destinations by region first
+  const filteredDestinations = allowedRegions.length > 0
+    ? destinations.filter(d => allowedRegions.includes(d.region))
+    : destinations;
+  
+  return filteredDestinations
     .map(destination => {
       // Try to get real flight price
       const destCode = getDestinationAirportCode(destination);
@@ -176,24 +202,28 @@ export const matchDestinations = (criteria: MatchCriteriaWithFlights): Destinati
       const hasRealFlightData = realFlightResult && !realFlightResult.useMock && realFlightResult.options.length > 0;
       
       // Use real flight price if available, otherwise fallback to static cost
-      let flightCost: number;
+      // This is the PER-PERSON flight cost
+      let flightCostPerPerson: number;
       if (hasRealFlightData && realFlightResult) {
         // Use mid-tier flight (recommended) for calculations
         const midFlight = realFlightResult.options.find(o => o.tier === 'mid');
-        flightCost = midFlight?.price || getCheapestPrice(realFlightResult);
+        flightCostPerPerson = midFlight?.price || getCheapestPrice(realFlightResult);
       } else {
-        flightCost = destination.costs.flight;
+        flightCostPerPerson = destination.costs.flight;
       }
       
-      // Calculate other costs
-      const dailyCost = destination.costs[criteria.tripStyle];
-      const accommodationCost = dailyCost * nights * 0.5; // ~50% on accommodation
-      const activitiesCost = dailyCost * nights * 0.3;    // ~30% on activities
-      const foodCost = dailyCost * nights * 0.2;          // ~20% on food
+      // Calculate total flight cost for all travelers
+      const totalFlightCost = flightCostPerPerson * criteria.travelers;
       
-      // Total cost per person then multiply by travelers
-      const perPersonCost = flightCost + (dailyCost * nights);
-      const estimatedTotalCost = perPersonCost * criteria.travelers;
+      // Calculate other costs (per person, then multiply)
+      const dailyCost = destination.costs[criteria.tripStyle];
+      const dailyCostAllTravelers = dailyCost * criteria.travelers;
+      const accommodationCost = dailyCostAllTravelers * nights * 0.5; // ~50% on accommodation
+      const activitiesCost = dailyCostAllTravelers * nights * 0.3;    // ~30% on activities
+      const foodCost = dailyCostAllTravelers * nights * 0.2;          // ~20% on food
+      
+      // Total trip cost (flights + daily costs for all travelers)
+      const estimatedTotalCost = totalFlightCost + (dailyCostAllTravelers * nights);
       
       // Calculate scores
       const weatherScore = calculateWeatherScore(destination, criteria.startDate, criteria.endDate);
@@ -257,10 +287,10 @@ export const matchDestinations = (criteria: MatchCriteriaWithFlights): Destinati
         valueScore: Math.min(100, Math.max(0, valueScore)),
         estimatedTotalCost,
         dailyCost,
-        flightCost,
-        accommodationCost: Math.round(accommodationCost * criteria.travelers),
-        activitiesCost: Math.round(activitiesCost * criteria.travelers),
-        foodCost: Math.round(foodCost * criteria.travelers),
+        flightCost: totalFlightCost,
+        accommodationCost: Math.round(accommodationCost),
+        activitiesCost: Math.round(activitiesCost),
+        foodCost: Math.round(foodCost),
         weatherScore,
         crowdScore,
         confidenceScore,
@@ -279,28 +309,43 @@ export const matchDestinations = (criteria: MatchCriteriaWithFlights): Destinati
 // Get ghost trips (slightly over budget)
 export const getGhostTrips = (criteria: MatchCriteriaWithFlights): DestinationMatch[] => {
   const nights = getNights(criteria.startDate, criteria.endDate);
-  const { flightData } = criteria;
+  const { flightData, regions } = criteria;
   
-  return destinations
+  // Get allowed regions for filtering
+  const allowedRegions: string[] = [];
+  if (regions && regions.length > 0 && !regions.includes('anywhere')) {
+    regions.forEach(r => allowedRegions.push(...mapRegionToDestination(r)));
+  }
+  
+  // Filter destinations by region first
+  const filteredDestinations = allowedRegions.length > 0
+    ? destinations.filter(d => allowedRegions.includes(d.region))
+    : destinations;
+  
+  return filteredDestinations
     .map(destination => {
-      // Try to get real flight price
+      // Try to get real flight price (per person)
       const destCode = getDestinationAirportCode(destination);
       const realFlightResult = destCode && flightData ? flightData.get(destCode) : null;
       const hasRealFlightData = realFlightResult && !realFlightResult.useMock && realFlightResult.options.length > 0;
       
-      let flightCost: number;
+      let flightCostPerPerson: number;
       if (hasRealFlightData && realFlightResult) {
         const midFlight = realFlightResult.options.find(o => o.tier === 'mid');
-        flightCost = midFlight?.price || getCheapestPrice(realFlightResult);
+        flightCostPerPerson = midFlight?.price || getCheapestPrice(realFlightResult);
       } else {
-        flightCost = destination.costs.flight;
+        flightCostPerPerson = destination.costs.flight;
       }
       
+      // Total flight cost for all travelers
+      const totalFlightCost = flightCostPerPerson * criteria.travelers;
+      
       const dailyCost = destination.costs[criteria.tripStyle];
-      const accommodationCost = dailyCost * nights * 0.5;
-      const activitiesCost = dailyCost * nights * 0.3;
-      const foodCost = dailyCost * nights * 0.2;
-      const estimatedTotalCost = (flightCost + (dailyCost * nights)) * criteria.travelers;
+      const dailyCostAllTravelers = dailyCost * criteria.travelers;
+      const accommodationCost = dailyCostAllTravelers * nights * 0.5;
+      const activitiesCost = dailyCostAllTravelers * nights * 0.3;
+      const foodCost = dailyCostAllTravelers * nights * 0.2;
+      const estimatedTotalCost = totalFlightCost + (dailyCostAllTravelers * nights);
       
       const weatherScore = calculateWeatherScore(destination, criteria.startDate, criteria.endDate);
       const crowdScore = calculateCrowdScore(destination, criteria.startDate, criteria.endDate);
@@ -326,10 +371,10 @@ export const getGhostTrips = (criteria: MatchCriteriaWithFlights): DestinationMa
         valueScore: Math.min(100, Math.max(0, valueScore)),
         estimatedTotalCost,
         dailyCost,
-        flightCost,
-        accommodationCost: Math.round(accommodationCost * criteria.travelers),
-        activitiesCost: Math.round(activitiesCost * criteria.travelers),
-        foodCost: Math.round(foodCost * criteria.travelers),
+        flightCost: totalFlightCost,
+        accommodationCost: Math.round(accommodationCost),
+        activitiesCost: Math.round(activitiesCost),
+        foodCost: Math.round(foodCost),
         weatherScore,
         crowdScore,
         confidenceScore,

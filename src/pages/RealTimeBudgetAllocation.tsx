@@ -86,6 +86,7 @@ export default function RealTimeBudgetAllocation() {
         endDate: tripSearch.dates.end,
         travelers: tripSearch.travelers,
         tripStyle: 'mid',
+        regions: tripSearch.regions,
       });
 
       const found = matches.find((d) => d.id === destinationId);
