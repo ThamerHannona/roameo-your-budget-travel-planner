@@ -140,6 +140,7 @@ export async function searchDestinations(params: SearchParams): Promise<ApiRespo
         travelers: params.travelers,
         tripStyle: params.travelStyle,
         interests: params.interests,
+        regions: params.regions as any,
       });
       
       const ghostTrips = getGhostTrips({
@@ -149,6 +150,7 @@ export async function searchDestinations(params: SearchParams): Promise<ApiRespo
         travelers: params.travelers,
         tripStyle: params.travelStyle,
         interests: params.interests,
+        regions: params.regions as any,
       });
       
       return {
@@ -182,6 +184,7 @@ export async function searchDestinations(params: SearchParams): Promise<ApiRespo
       travelers: params.travelers,
       tripStyle: params.travelStyle,
       interests: params.interests,
+      regions: params.regions as any,
     });
     
     return {

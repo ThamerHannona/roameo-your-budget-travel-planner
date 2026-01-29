@@ -67,6 +67,7 @@ export default function BudgetAllocation() {
         travelers: tripSearch.travelers,
         tripStyle: tripSearch.travelStyle === 'relaxation' ? 'luxury' : 
                    tripSearch.travelStyle === 'adventure' ? 'budget' : 'mid',
+        regions: tripSearch.regions,
       });
       
       const found = matches.find(m => m.id === destinationId);
