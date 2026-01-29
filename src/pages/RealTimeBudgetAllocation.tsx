@@ -13,17 +13,19 @@ import {
   BudgetPresets,
   ComparisonView,
   FlightTierSelector,
+  HotelTierSelector,
 } from '@/components/budgetAllocation';
 import { PaywallModal } from '@/components/paywall';
 import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useFlightSearch } from '@/hooks/useFlightSearch';
+import { useHotelSearch } from '@/hooks/useHotelSearch';
 import { getAirportCode } from '@/utils/airports';
 import { matchDestinations } from '@/lib/destinationMatcher';
 import { destinations } from '@/data/destinations';
 import { budgetPresets } from '@/data/mockBudgetData';
-import type { CategoryKey, FlightOption } from '@/types/budgetConstraints';
+import type { CategoryKey, FlightOption, HotelTier } from '@/types/budgetConstraints';
 import type { DestinationMatch } from '@/types/destination';
 import { useToast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
@@ -50,15 +52,24 @@ export default function RealTimeBudgetAllocation() {
     resetToDefaults,
     lockBudget,
     setFlightOptions,
+    setHotelOptions,
   } = useBudgetConstraintsStore();
 
   // Real flight search
   const { 
     results: flightResults, 
     isLoading: flightsLoading, 
-    hasMockData,
+    hasMockData: flightsMockData,
     searchFlights 
   } = useFlightSearch();
+
+  // Real hotel search
+  const {
+    results: hotelResults,
+    isLoading: hotelsLoading,
+    hasMockData: hotelsMockData,
+    search: searchHotels,
+  } = useHotelSearch();
 
   // Load destination
   useEffect(() => {
@@ -124,7 +135,18 @@ export default function RealTimeBudgetAllocation() {
       tripSearch.travelers,
       [destinationCode]
     );
-  }, [destination, tripSearch.departureCity, tripSearch.dates.start, tripSearch.dates.end, tripSearch.travelers, searchFlights]);
+
+    // Format dates for hotel search (YYYY-MM-DD)
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    
+    // Fetch hotels for this destination
+    searchHotels(
+      destinationCode,
+      formatDate(tripSearch.dates.start),
+      formatDate(tripSearch.dates.end),
+      tripSearch.travelers
+    );
+  }, [destination, tripSearch.departureCity, tripSearch.dates.start, tripSearch.dates.end, tripSearch.travelers, searchFlights, searchHotels]);
 
   // Map real flight results to store format
   useEffect(() => {
@@ -152,6 +174,59 @@ export default function RealTimeBudgetAllocation() {
     
     setFlightOptions(sortedOptions);
   }, [destination, flightResults, setFlightOptions]);
+
+  // Map real hotel results to store format
+  useEffect(() => {
+    if (!destination) return;
+    
+    const destinationCode = getAirportCode(destination.name);
+    if (!destinationCode) return;
+
+    const result = hotelResults.get(destinationCode);
+    if (!result?.hotels?.length) return;
+
+    const nights = tripSearch.days || 7;
+    
+    // Group hotels by rating tier
+    const tierMap: Record<string, typeof result.hotels> = {
+      '5★': [],
+      '4★': [],
+      '3★': [],
+    };
+    
+    result.hotels.forEach((hotel) => {
+      const rating = hotel.rating >= 5 ? '5★' : hotel.rating >= 4 ? '4★' : '3★';
+      tierMap[rating].push(hotel);
+    });
+    
+    // Build tiers from real hotel data
+    const mappedTiers: HotelTier[] = [];
+    
+    (['3★', '4★', '5★'] as const).forEach((tier) => {
+      const tieredHotels = tierMap[tier];
+      if (tieredHotels.length > 0) {
+        // Get average price for this tier
+        const avgPrice = Math.round(
+          tieredHotels.reduce((sum, h) => sum + h.pricePerNight, 0) / tieredHotels.length
+        );
+        const totalPrice = avgPrice * nights;
+        const bestHotel = tieredHotels[0];
+        
+        mappedTiers.push({
+          tier,
+          name: bestHotel.name,
+          pricePerNight: avgPrice,
+          totalPrice,
+          description: `${tier.replace('★', '-star')} accommodation`,
+          amenities: bestHotel.amenities || ['WiFi', 'Parking'],
+        });
+      }
+    });
+    
+    if (mappedTiers.length > 0) {
+      setHotelOptions(mappedTiers);
+    }
+  }, [destination, hotelResults, tripSearch.days, setHotelOptions]);
 
   const handleCategoryChange = useCallback(
     (category: CategoryKey) => (value: number) => {
@@ -274,7 +349,7 @@ export default function RealTimeBudgetAllocation() {
                     <Wifi className="h-3 w-3 mr-1" />
                     Loading live prices...
                   </Badge>
-                ) : hasMockData ? (
+                ) : flightsMockData ? (
                   <Badge variant="outline" className="text-xs text-muted-foreground">
                     <WifiOff className="h-3 w-3 mr-1" />
                     Estimated prices
@@ -292,6 +367,42 @@ export default function RealTimeBudgetAllocation() {
                 selectedPrice={constraints.flights.current}
                 onSelect={handleCategoryChange('flights')}
                 totalBudget={destinationBudget.totalBudget}
+              />
+            </motion.div>
+
+            {/* Hotel Tier Selector */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="rounded-xl bg-card border border-border p-5"
+            >
+              {/* Live/Mock data indicator */}
+              <div className="flex items-center justify-end gap-2 mb-3">
+                {hotelsLoading ? (
+                  <Badge variant="outline" className="text-xs animate-pulse">
+                    <Wifi className="h-3 w-3 mr-1" />
+                    Loading hotel prices...
+                  </Badge>
+                ) : hotelsMockData ? (
+                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                    <WifiOff className="h-3 w-3 mr-1" />
+                    Estimated prices
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs text-success border-success/30">
+                    <Wifi className="h-3 w-3 mr-1" />
+                    Live prices
+                  </Badge>
+                )}
+              </div>
+              
+              <HotelTierSelector
+                tiers={constraints.hotels.tiers}
+                selectedPrice={constraints.hotels.current}
+                onSelect={handleCategoryChange('hotels')}
+                totalBudget={destinationBudget.totalBudget}
+                nights={tripSearch.days || 7}
               />
             </motion.div>
 
@@ -313,14 +424,6 @@ export default function RealTimeBudgetAllocation() {
               </div>
 
               <div className="space-y-3">
-                <CategorySlider
-                  category="hotels"
-                  constraints={constraints.hotels}
-                  totalBudget={destinationBudget.totalBudget}
-                  onChange={handleCategoryChange('hotels')}
-                  selectedHotel={selectedHotel}
-                />
-
                 <CategorySlider
                   category="activities"
                   constraints={constraints.activities}
