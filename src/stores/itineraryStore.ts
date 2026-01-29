@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DayPlan, Activity, ItineraryState } from '@/types/itinerary';
-import { createLisbonItinerary, getTripTotals } from '@/data/lisbonItinerary';
+import { createLisbonItinerary, createGenericItinerary, getTripTotals } from '@/data/lisbonItinerary';
 
 interface ItineraryActions {
   initializeItinerary: (
@@ -47,8 +47,14 @@ export const useItineraryStore = create<ItineraryState & ItineraryActions>()(
         const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         const dailyBudget = Math.round(totalBudget / days);
         
-        // For now, always generate Lisbon itinerary as mock data
-        const itineraryDays = createLisbonItinerary(startDate, dailyBudget);
+        // Use Lisbon-specific itinerary for Lisbon, generic for other destinations
+        let itineraryDays: DayPlan[];
+        if (destination.name.toLowerCase() === 'lisbon') {
+          itineraryDays = createLisbonItinerary(startDate, dailyBudget);
+        } else {
+          itineraryDays = createGenericItinerary(destination, startDate, days, dailyBudget);
+        }
+        
         const { totalSpent } = getTripTotals(itineraryDays);
 
         set({

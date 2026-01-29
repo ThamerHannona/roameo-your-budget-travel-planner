@@ -41,9 +41,17 @@ export default function DayByDayItinerary() {
     getTotalSpent,
   } = useItineraryStore();
 
-  // Initialize itinerary if not already done
+  // Clear and re-initialize if destination ID doesn't match stored destination
   useEffect(() => {
-    if (days.length === 0 && selectedDestination) {
+    // Check if the URL destinationId matches the stored destination
+    const storedDestinationId = destination.name.toLowerCase().replace(/\s+/g, '-');
+    const urlMatchesStored = destinationId === storedDestinationId || 
+                             destination.name.toLowerCase() === destinationId?.toLowerCase();
+    
+    // If we have a selectedDestination from the store and either:
+    // 1. No days exist yet, or
+    // 2. The URL doesn't match what's stored (user selected a different destination)
+    if (selectedDestination && (days.length === 0 || !urlMatchesStored)) {
       const startDate = dates.start || new Date();
       const endDate = dates.end || new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
       
@@ -60,7 +68,7 @@ export default function DayByDayItinerary() {
         travelers
       );
     }
-  }, [selectedDestination, days.length, budget, travelers, dates, initializeItinerary]);
+  }, [selectedDestination, days.length, budget, travelers, dates, initializeItinerary, destinationId, destination.name]);
 
   // Wait for store hydration before redirecting
   const [isHydrated, setIsHydrated] = useState(false);

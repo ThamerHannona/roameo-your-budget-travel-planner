@@ -779,3 +779,298 @@ export const getTripTotals = (days: DayPlan[]): { totalSpent: number; byCategory
 
   return { totalSpent, byCategory };
 };
+
+// Create a generic itinerary for any destination
+export const createGenericItinerary = (
+  destination: { name: string; country: string; coordinates: { lat: number; lng: number } },
+  startDate: Date,
+  numDays: number,
+  dailyBudget: number
+): DayPlan[] => {
+  const days: DayPlan[] = [];
+  
+  for (let i = 1; i <= numDays; i++) {
+    const dayDate = new Date(startDate);
+    dayDate.setDate(dayDate.getDate() + i - 1);
+    
+    const activities: Activity[] = [];
+    
+    // Day 1: Arrival day
+    if (i === 1) {
+      activities.push({
+        id: `d${i}-a1`,
+        time: '11:00',
+        endTime: '12:30',
+        type: 'flight',
+        name: `Arrive at ${destination.name} Airport`,
+        description: `Land and clear customs at ${destination.name} international airport.`,
+        cost: 0,
+        duration: '1h 30min',
+        location: {
+          name: `${destination.name} Airport`,
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: true,
+      });
+      
+      activities.push({
+        id: `d${i}-a2`,
+        time: '13:00',
+        endTime: '13:30',
+        type: 'hotel',
+        name: 'Check-in at Hotel',
+        description: 'Drop off luggage and freshen up at your accommodation.',
+        cost: 0,
+        duration: '30min',
+        location: {
+          name: 'Hotel',
+          address: `City Center, ${destination.name}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: true,
+      });
+      
+      activities.push({
+        id: `d${i}-a3`,
+        time: '14:00',
+        endTime: '15:30',
+        type: 'restaurant',
+        name: 'Welcome Lunch',
+        description: `Enjoy your first meal in ${destination.name} at a local restaurant.`,
+        cost: Math.round(dailyBudget * 0.15),
+        duration: '1h 30min',
+        location: {
+          name: 'Local Restaurant',
+          address: `City Center, ${destination.name}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+      
+      activities.push({
+        id: `d${i}-a4`,
+        time: '16:00',
+        endTime: '18:30',
+        type: 'attraction',
+        name: `Explore ${destination.name} City Center`,
+        description: `Walk around the main areas and get oriented with ${destination.name}.`,
+        cost: 0,
+        duration: '2h 30min',
+        location: {
+          name: 'City Center',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: true,
+      });
+      
+      activities.push({
+        id: `d${i}-a5`,
+        time: '19:30',
+        endTime: '21:30',
+        type: 'restaurant',
+        name: 'Dinner',
+        description: `Experience local cuisine for dinner in ${destination.name}.`,
+        cost: Math.round(dailyBudget * 0.2),
+        duration: '2h',
+        location: {
+          name: 'Restaurant',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+    }
+    // Last day: Departure
+    else if (i === numDays) {
+      activities.push({
+        id: `d${i}-a1`,
+        time: '09:00',
+        endTime: '10:00',
+        type: 'restaurant',
+        name: 'Breakfast',
+        description: 'Enjoy a final breakfast before heading to the airport.',
+        cost: Math.round(dailyBudget * 0.1),
+        duration: '1h',
+        location: {
+          name: 'Hotel or Café',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+      
+      activities.push({
+        id: `d${i}-a2`,
+        time: '10:30',
+        endTime: '11:00',
+        type: 'hotel',
+        name: 'Hotel Check-out',
+        description: 'Check out and prepare for departure.',
+        cost: 0,
+        duration: '30min',
+        location: {
+          name: 'Hotel',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: true,
+      });
+      
+      activities.push({
+        id: `d${i}-a3`,
+        time: '11:30',
+        endTime: '12:30',
+        type: 'transport',
+        name: 'Transfer to Airport',
+        description: 'Head to the airport for your departure flight.',
+        cost: Math.round(dailyBudget * 0.05),
+        duration: '1h',
+        location: {
+          name: `${destination.name} Airport`,
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+      
+      activities.push({
+        id: `d${i}-a4`,
+        time: '14:00',
+        endTime: '16:00',
+        type: 'flight',
+        name: 'Departure Flight',
+        description: `Board your return flight from ${destination.name}.`,
+        cost: 0,
+        duration: '2h+',
+        location: {
+          name: `${destination.name} Airport`,
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: true,
+      });
+    }
+    // Regular days: sightseeing
+    else {
+      activities.push({
+        id: `d${i}-a1`,
+        time: '09:00',
+        endTime: '10:00',
+        type: 'restaurant',
+        name: 'Breakfast',
+        description: 'Start your day with a hearty breakfast.',
+        cost: Math.round(dailyBudget * 0.08),
+        duration: '1h',
+        location: {
+          name: 'Café',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+      
+      activities.push({
+        id: `d${i}-a2`,
+        time: '10:30',
+        endTime: '13:00',
+        type: 'attraction',
+        name: `Morning Sightseeing in ${destination.name}`,
+        description: `Explore popular attractions and landmarks in ${destination.name}.`,
+        cost: Math.round(dailyBudget * 0.15),
+        duration: '2h 30min',
+        location: {
+          name: 'Local Attractions',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+      
+      activities.push({
+        id: `d${i}-a3`,
+        time: '13:30',
+        endTime: '15:00',
+        type: 'restaurant',
+        name: 'Lunch',
+        description: `Enjoy lunch at a recommended local spot in ${destination.name}.`,
+        cost: Math.round(dailyBudget * 0.12),
+        duration: '1h 30min',
+        location: {
+          name: 'Restaurant',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+      
+      activities.push({
+        id: `d${i}-a4`,
+        time: '15:30',
+        endTime: '18:00',
+        type: 'museum',
+        name: 'Afternoon Activity',
+        description: `Visit a museum, gallery, or unique attraction in ${destination.name}.`,
+        cost: Math.round(dailyBudget * 0.1),
+        duration: '2h 30min',
+        location: {
+          name: 'Museum or Gallery',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+      
+      activities.push({
+        id: `d${i}-a5`,
+        time: '18:30',
+        endTime: '19:30',
+        type: 'free-time',
+        name: 'Free Time',
+        description: 'Relax, explore on your own, or rest at the hotel.',
+        cost: 0,
+        duration: '1h',
+        location: {
+          name: 'City Center',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: true,
+      });
+      
+      activities.push({
+        id: `d${i}-a6`,
+        time: '20:00',
+        endTime: '22:00',
+        type: 'restaurant',
+        name: 'Dinner',
+        description: `Savor dinner at a popular restaurant in ${destination.name}.`,
+        cost: Math.round(dailyBudget * 0.2),
+        duration: '2h',
+        location: {
+          name: 'Restaurant',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+    }
+    
+    days.push({
+      id: `day-${i}`,
+      dayNumber: i,
+      date: dayDate,
+      weather: { temp: 72, condition: 'sunny', icon: '☀️' },
+      dailyBudget,
+      proTips: [
+        `Explore ${destination.name} like a local by walking the neighborhoods`,
+        'Ask hotel staff for restaurant recommendations',
+        'Keep some local currency for small purchases',
+      ],
+      activities,
+    });
+  }
+  
+  return days;
+};
