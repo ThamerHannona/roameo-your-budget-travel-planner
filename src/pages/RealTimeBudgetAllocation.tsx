@@ -137,14 +137,11 @@ export default function RealTimeBudgetAllocation() {
       [destinationCode]
     );
 
-    // Format dates for hotel search (YYYY-MM-DD)
-    const formatDate = (date: Date) => date.toISOString().split('T')[0];
-    
-    // Fetch hotels for this destination
+    // Fetch hotels for this destination - use city name
     searchHotels(
-      destinationCode,
-      formatDate(tripSearch.dates.start),
-      formatDate(tripSearch.dates.end),
+      destination.name,
+      tripSearch.dates.start,
+      tripSearch.dates.end,
       tripSearch.travelers
     );
   }, [destination, tripSearch.departureCity, tripSearch.dates.start, tripSearch.dates.end, tripSearch.travelers, searchFlights, searchHotels]);
@@ -184,45 +181,38 @@ export default function RealTimeBudgetAllocation() {
   useEffect(() => {
     if (!destination) return;
     
-    const destinationCode = getAirportCode(destination.name);
-    if (!destinationCode) return;
-
-    const result = hotelResults.get(destinationCode);
-    if (!result?.hotels?.length) return;
+    // Hotels are stored by destination name (city)
+    const result = hotelResults.get(destination.name);
+    if (!result?.options?.length) return;
 
     const nights = tripSearch.days || 7;
     
-    // Group hotels by rating tier
-    const tierMap: Record<string, typeof result.hotels> = {
-      '5★': [],
-      '4★': [],
-      '3★': [],
+    // Group hotels by tier
+    const tierMap: Record<string, typeof result.options> = {
+      '5-star': [],
+      '4-star': [],
+      '3-star': [],
     };
     
-    result.hotels.forEach((hotel) => {
-      const rating = hotel.rating >= 5 ? '5★' : hotel.rating >= 4 ? '4★' : '3★';
-      tierMap[rating].push(hotel);
+    result.options.forEach((hotel) => {
+      tierMap[hotel.tier]?.push(hotel);
     });
     
     // Build tiers from real hotel data
     const mappedTiers: HotelTier[] = [];
     
-    (['3★', '4★', '5★'] as const).forEach((tier) => {
+    (['3-star', '4-star', '5-star'] as const).forEach((tier) => {
       const tieredHotels = tierMap[tier];
-      if (tieredHotels.length > 0) {
-        // Get average price for this tier
-        const avgPrice = Math.round(
-          tieredHotels.reduce((sum, h) => sum + h.pricePerNight, 0) / tieredHotels.length
-        );
-        const totalPrice = avgPrice * nights;
+      if (tieredHotels && tieredHotels.length > 0) {
         const bestHotel = tieredHotels[0];
+        const tierLabel = tier === '3-star' ? '3★' : tier === '4-star' ? '4★' : '5★';
         
         mappedTiers.push({
-          tier,
+          tier: tierLabel,
           name: bestHotel.name,
-          pricePerNight: avgPrice,
-          totalPrice,
-          description: `${tier.replace('★', '-star')} accommodation`,
+          pricePerNight: bestHotel.pricePerNight,
+          totalPrice: bestHotel.totalPrice,
+          description: `${tierLabel.replace('★', '-star')} accommodation`,
           amenities: bestHotel.amenities || ['WiFi', 'Parking'],
         });
       }

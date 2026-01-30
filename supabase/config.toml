@@ -2,3 +2,6 @@ project_id = "danchsdsmbszdjquehcc"
 
 [functions.search-flights]
 verify_jwt = false
+
+[functions.search-hotels]
+verify_jwt = false

@@ -1,87 +1,157 @@
 import { useState, useCallback } from 'react';
-import { searchHotels } from '@/services/travelApi';
-import type { Hotel } from '@/types/travel';
+import { fetchHotelOptions, HotelSearchResult, HotelOption, clearHotelCache } from '@/services/hotelApi';
+import { format } from 'date-fns';
 
-export interface HotelSearchResult {
-  destination: string;
-  hotels: Hotel[];
+export interface HotelSearchState {
   isLoading: boolean;
   error: string | null;
+  results: Map<string, HotelSearchResult>;
   hasMockData: boolean;
 }
 
-export function useHotelSearch() {
-  const [results, setResults] = useState<Map<string, HotelSearchResult>>(new Map());
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMockData, setHasMockData] = useState(false);
+export interface UseHotelSearchReturn extends HotelSearchState {
+  search: (
+    destination: string,
+    checkIn: Date | string,
+    checkOut: Date | string,
+    travelers?: number
+  ) => Promise<HotelSearchResult | void>;
+  searchHotels: (
+    destination: string,
+    checkIn: Date,
+    checkOut: Date,
+    travelers?: number
+  ) => Promise<HotelSearchResult>;
+  getHotelPrice: (destination: string, tier?: '3-star' | '4-star' | '5-star') => number | null;
+  getHotelOptions: (destination: string) => HotelOption[];
+  getResult: (destination: string) => HotelSearchResult | undefined;
+  clearCache: () => void;
+  reset: () => void;
+}
 
-  const search = useCallback(
-    async (
-      destination: string,
-      checkIn: string,
-      checkOut: string,
-      travelers: number = 1
-    ) => {
-      if (!destination || !checkIn || !checkOut) return;
+/**
+ * Hook for searching hotels from SerpAPI
+ */
+export function useHotelSearch(): UseHotelSearchReturn {
+  const [state, setState] = useState<HotelSearchState>({
+    isLoading: false,
+    error: null,
+    results: new Map(),
+    hasMockData: false,
+  });
 
-      setIsLoading(true);
+  const searchHotels = useCallback(async (
+    destination: string,
+    checkIn: Date,
+    checkOut: Date,
+    travelers: number = 2
+  ): Promise<HotelSearchResult> => {
+    if (!destination || !checkIn || !checkOut) {
+      throw new Error('Missing required search parameters');
+    }
 
-      try {
-        // Check if we have API keys configured
-        const hasApiKey = !!import.meta.env.VITE_AMADEUS_KEY;
-        setHasMockData(!hasApiKey);
+    setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-        const hotels = await searchHotels(destination, checkIn, checkOut, travelers);
+    try {
+      const checkInStr = format(checkIn, 'yyyy-MM-dd');
+      const checkOutStr = format(checkOut, 'yyyy-MM-dd');
 
-        const result: HotelSearchResult = {
-          destination,
-          hotels,
+      const result = await fetchHotelOptions({
+        destination,
+        checkIn: checkInStr,
+        checkOut: checkOutStr,
+        adults: travelers,
+      });
+
+      setState(prev => {
+        const newResults = new Map(prev.results);
+        newResults.set(destination, result);
+        return {
           isLoading: false,
           error: null,
-          hasMockData: !hasApiKey,
+          results: newResults,
+          hasMockData: result.useMock || false,
         };
+      });
 
-        setResults((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(destination, result);
-          return newMap;
-        });
-      } catch (error) {
-        console.error('Hotel search error:', error);
-        setHasMockData(true);
+      return result;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to search hotels';
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  }, []);
 
-        const result: HotelSearchResult = {
-          destination,
-          hotels: [],
-          isLoading: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          hasMockData: true,
-        };
+  // Alias for backward compatibility - accepts string or Date
+  const search = useCallback(async (
+    destination: string,
+    checkIn: Date | string,
+    checkOut: Date | string,
+    travelers: number = 2
+  ): Promise<HotelSearchResult | void> => {
+    if (!destination || !checkIn || !checkOut) return;
 
-        setResults((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(destination, result);
-          return newMap;
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    []
-  );
+    const checkInDate = typeof checkIn === 'string' ? new Date(checkIn) : checkIn;
+    const checkOutDate = typeof checkOut === 'string' ? new Date(checkOut) : checkOut;
 
-  const getResult = useCallback(
-    (destination: string): HotelSearchResult | undefined => {
-      return results.get(destination);
-    },
-    [results]
-  );
+    try {
+      return await searchHotels(destination, checkInDate, checkOutDate, travelers);
+    } catch (error) {
+      console.error('Hotel search error:', error);
+    }
+  }, [searchHotels]);
+
+  const getHotelPrice = useCallback((
+    destination: string,
+    tier: '3-star' | '4-star' | '5-star' = '4-star'
+  ): number | null => {
+    const result = state.results.get(destination);
+    if (!result) return null;
+
+    const hotel = result.options.find(o => o.tier === tier);
+    if (hotel) return hotel.totalPrice;
+
+    // Fallback to first option
+    return result.options[0]?.totalPrice || null;
+  }, [state.results]);
+
+  const getHotelOptions = useCallback((destination: string): HotelOption[] => {
+    const result = state.results.get(destination);
+    return result?.options || [];
+  }, [state.results]);
+
+  const getResult = useCallback((destination: string): HotelSearchResult | undefined => {
+    return state.results.get(destination);
+  }, [state.results]);
+
+  const clearCache = useCallback(() => {
+    clearHotelCache();
+    setState(prev => ({ ...prev, results: new Map() }));
+  }, []);
+
+  const reset = useCallback(() => {
+    setState({
+      isLoading: false,
+      error: null,
+      results: new Map(),
+      hasMockData: false,
+    });
+  }, []);
 
   return {
-    results,
-    isLoading,
-    hasMockData,
+    ...state,
     search,
+    searchHotels,
+    getHotelPrice,
+    getHotelOptions,
     getResult,
+    clearCache,
+    reset,
   };
 }
+
+export default useHotelSearch;
