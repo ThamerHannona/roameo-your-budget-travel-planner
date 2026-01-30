@@ -201,19 +201,19 @@ export const matchDestinations = (criteria: MatchCriteriaWithFlights): Destinati
       const realFlightResult = destCode && flightData ? flightData.get(destCode) : null;
       const hasRealFlightData = realFlightResult && !realFlightResult.useMock && realFlightResult.options.length > 0;
       
-      // Use real flight price if available, otherwise fallback to static cost
-      // This is the PER-PERSON flight cost
-      let flightCostPerPerson: number;
+      // Calculate total flight cost for all travelers
+      // IMPORTANT: SerpAPI returns TOTAL price for all travelers, NOT per-person
+      // Static costs in destinations.ts are per-person, so only multiply those
+      let totalFlightCost: number;
       if (hasRealFlightData && realFlightResult) {
         // Use mid-tier flight (recommended) for calculations
+        // Price is already for all travelers from the API
         const midFlight = realFlightResult.options.find(o => o.tier === 'mid');
-        flightCostPerPerson = midFlight?.price || getCheapestPrice(realFlightResult);
+        totalFlightCost = midFlight?.price || getCheapestPrice(realFlightResult);
       } else {
-        flightCostPerPerson = destination.costs.flight;
+        // Static costs are per-person, so multiply by travelers
+        totalFlightCost = destination.costs.flight * criteria.travelers;
       }
-      
-      // Calculate total flight cost for all travelers
-      const totalFlightCost = flightCostPerPerson * criteria.travelers;
       
       // Calculate other costs (per person, then multiply)
       const dailyCost = destination.costs[criteria.tripStyle];
@@ -324,21 +324,20 @@ export const getGhostTrips = (criteria: MatchCriteriaWithFlights): DestinationMa
   
   return filteredDestinations
     .map(destination => {
-      // Try to get real flight price (per person)
+      // Try to get real flight price
       const destCode = getDestinationAirportCode(destination);
       const realFlightResult = destCode && flightData ? flightData.get(destCode) : null;
       const hasRealFlightData = realFlightResult && !realFlightResult.useMock && realFlightResult.options.length > 0;
       
-      let flightCostPerPerson: number;
+      // IMPORTANT: SerpAPI returns TOTAL price for all travelers, NOT per-person
+      let totalFlightCost: number;
       if (hasRealFlightData && realFlightResult) {
         const midFlight = realFlightResult.options.find(o => o.tier === 'mid');
-        flightCostPerPerson = midFlight?.price || getCheapestPrice(realFlightResult);
+        totalFlightCost = midFlight?.price || getCheapestPrice(realFlightResult);
       } else {
-        flightCostPerPerson = destination.costs.flight;
+        // Static costs are per-person
+        totalFlightCost = destination.costs.flight * criteria.travelers;
       }
-      
-      // Total flight cost for all travelers
-      const totalFlightCost = flightCostPerPerson * criteria.travelers;
       
       const dailyCost = destination.costs[criteria.tripStyle];
       const dailyCostAllTravelers = dailyCost * criteria.travelers;
