@@ -53,13 +53,46 @@ export const useTripSearchStore = create<TripSearchState & TripSearchActions>()(
 
       setBudget: (budget) => set({ budget: Math.max(500, Math.min(10000, budget)) }),
       
-      setDays: (days) => set({ days: Math.max(3, Math.min(14, days)) }),
+      setDays: (days) => set((state) => {
+        const clampedDays = Math.max(3, Math.min(14, days));
+        const startDate = state.dates.start;
+        
+        // Auto-update end date if we have a start date
+        if (startDate) {
+          const newEndDate = new Date(startDate);
+          newEndDate.setDate(newEndDate.getDate() + clampedDays - 1);
+          return { 
+            days: clampedDays,
+            dates: { ...state.dates, end: newEndDate }
+          };
+        }
+        
+        return { days: clampedDays };
+      }),
       
       setDepartureCity: (city) => set({ departureCity: city }),
       
-      setDates: (start, end) => set((state) => ({
-        dates: { ...state.dates, start, end }
-      })),
+      setDates: (start, end) => set((state) => {
+        // If only start date provided, auto-calculate end based on days
+        if (start && !end) {
+          const newEndDate = new Date(start);
+          newEndDate.setDate(newEndDate.getDate() + state.days - 1);
+          return { dates: { ...state.dates, start, end: newEndDate } };
+        }
+        
+        // If both dates provided, update days to match the range
+        if (start && end) {
+          const diffTime = end.getTime() - start.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          const clampedDays = Math.max(3, Math.min(14, diffDays));
+          return { 
+            days: clampedDays,
+            dates: { ...state.dates, start, end } 
+          };
+        }
+        
+        return { dates: { ...state.dates, start, end } };
+      }),
       
       setFlexibleDates: (flexible) => set((state) => ({
         dates: { ...state.dates, flexible }
