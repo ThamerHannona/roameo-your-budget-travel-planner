@@ -4,7 +4,7 @@
 export const API_SETTINGS = {
   // Set to true to use mock data (saves API credits)
   // Set to false to use real SerpAPI flight data
-  USE_MOCK_FLIGHTS: true,
+  USE_MOCK_FLIGHTS: false,
   
   // Cache duration in milliseconds (5 minutes)
   CACHE_DURATION_MS: 5 * 60 * 1000,

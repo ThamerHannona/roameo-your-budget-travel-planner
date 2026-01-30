@@ -112,6 +112,13 @@ export default function FinalBooking() {
 
   // Extract bookable items from itinerary
   const bookingItems: BookingItem[] = [];
+  // Build proper search URLs with dates and destination
+  const formatDateForUrl = (date: Date) => date.toISOString().split('T')[0];
+  const departDate = formatDateForUrl(tripDates.start);
+  const returnDate = formatDateForUrl(tripDates.end);
+  
+  const flightSearchUrl = `https://www.google.com/travel/flights?q=flights+to+${encodeURIComponent(destination.name)}&d1=${departDate}&d2=${returnDate}&curr=USD`;
+  const hotelSearchUrl = `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination.name)}&dates=${departDate}_${returnDate}&guests=${travelers}`;
   
   // Add flight booking with real data
   bookingItems.push({
@@ -122,7 +129,7 @@ export default function FinalBooking() {
       ? `${selectedFlight.airline} • ${selectedFlight.duration} • ${selectedFlight.stops === 0 ? 'Direct' : `${selectedFlight.stops} stop(s)`}`
       : 'Round-trip economy • Multiple airlines available',
     price: flightCost,
-    bookingUrl: 'https://www.google.com/travel/flights',
+    bookingUrl: flightSearchUrl,
     isBooked: bookedItems.has('flight-outbound'),
     date: tripDates.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     provider: 'Google Flights',
@@ -137,9 +144,9 @@ export default function FinalBooking() {
       ? `${selectedHotel.name} • ${selectedHotel.amenities.slice(0, 2).join(', ')}`
       : `${destination.name} • Various options available`,
     price: hotelCost,
-    bookingUrl: 'https://www.booking.com',
+    bookingUrl: hotelSearchUrl,
     isBooked: bookedItems.has('hotel-stay'),
-    provider: 'Booking.com',
+    provider: 'Google Hotels',
   });
 
   // Add activities from itinerary
