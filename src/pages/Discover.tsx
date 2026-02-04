@@ -13,6 +13,8 @@ import { ComparisonModal } from '@/components/discover/ComparisonModal';
 import { SearchSummaryHeader } from '@/components/discover/SearchSummaryHeader';
 import { StickyComparisonBar } from '@/components/discover/StickyComparisonBar';
 import { DiscoverSidebar, DiscoverFiltersState } from '@/components/discover/DiscoverSidebar';
+import { DiscoveryMap } from '@/components/discover/DiscoveryMap';
+import { MapListToggle } from '@/components/discover/MapListToggle';
 import { DateFlexibilityModal } from '@/components/dateFlexibility';
 import { GhostTripsSection } from '@/components/ghost';
 import { SearchingAnimation } from '@/components/loading';
@@ -61,6 +63,7 @@ export default function Discover() {
   const [flexibilityModalOpen, setFlexibilityModalOpen] = useState(false);
   const [selectedFlexDestination, setSelectedFlexDestination] = useState<DestinationMatch | null>(null);
   const [hasSearchedFlights, setHasSearchedFlights] = useState(false);
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   
   // Auto-fetch real flight data when the page loads
   useEffect(() => {
@@ -356,79 +359,108 @@ export default function Discover() {
           </motion.div>
         )}
         
+        {/* View Toggle */}
+        <div className="flex items-center justify-between mb-6">
+          <MapListToggle view={viewMode} onChange={setViewMode} />
+          
+          {compareList.length > 0 && (
+            <Button onClick={() => setShowComparison(true)} className="gap-2 md:hidden">
+              <Scale className="h-4 w-4" />
+              Compare ({compareList.length})
+            </Button>
+          )}
+        </div>
+        
         {/* Main Layout */}
         <div className="flex gap-6">
-          {/* Sidebar (Desktop) */}
-          <div className="hidden lg:block w-72 shrink-0">
-            {sidebarContent}
-          </div>
+          {/* Sidebar (Desktop) - only show in list view */}
+          {viewMode === 'list' && (
+            <div className="hidden lg:block w-72 shrink-0">
+              {sidebarContent}
+            </div>
+          )}
           
-          {/* Destination Grid */}
+          {/* Content Area */}
           <div className="flex-1">
-            {filteredDestinations.length > 0 ? (
+            {/* Map View */}
+            {viewMode === 'map' && (
+              <DiscoveryMap
+                destinations={filteredDestinations}
+                onSelectDestination={handleSelectDestination}
+                isLoading={flightSearch.isLoading && !filteredDestinations.length}
+                originCity={tripSearch.departureCity}
+              />
+            )}
+            
+            {/* List View */}
+            {viewMode === 'list' && (
               <>
-                {/* Loading overlay when refreshing */}
-                {flightSearch.isLoading && (
+                {filteredDestinations.length > 0 ? (
+                  <>
+                    {/* Loading overlay when refreshing */}
+                    {flightSearch.isLoading && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg flex items-center gap-3"
+                      >
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span className="text-sm">Updating flight prices...</span>
+                      </motion.div>
+                    )}
+                    
+                    <motion.div
+                      variants={containerVariants}
+                      initial="hidden"
+                      animate="show"
+                      className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+                    >
+                      <AnimatePresence mode="popLayout">
+                        {filteredDestinations.map((destination) => (
+                          <motion.div
+                            key={destination.id}
+                            variants={itemVariants}
+                            layout
+                          >
+                            <DestinationCard
+                              destination={destination}
+                              isSelected={compareList.some(d => d.id === destination.id)}
+                              onSelect={() => handleSelectDestination(destination)}
+                              onCompare={() => toggleCompare(destination)}
+                              onViewDetails={() => handleSelectDestination(destination)}
+                              onFlexibleDates={() => {
+                                setSelectedFlexDestination(destination);
+                                setFlexibilityModalOpen(true);
+                              }}
+                              compareCount={compareList.length}
+                            />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </motion.div>
+                  </>
+                ) : (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg flex items-center gap-3"
+                    className="text-center py-16"
                   >
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                    <span className="text-sm">Updating flight prices...</span>
+                    <Compass className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-xl font-display font-semibold text-foreground mb-2">
+                      No destinations found
+                    </h3>
+                    <p className="text-muted-foreground mb-4">
+                      Try adjusting your filters or increasing your budget.
+                    </p>
+                    <Button variant="outline" onClick={resetFilters}>
+                      Reset Filters
+                    </Button>
                   </motion.div>
                 )}
-                
-                <motion.div
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="show"
-                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
-                >
-                  <AnimatePresence mode="popLayout">
-                    {filteredDestinations.map((destination) => (
-                      <motion.div
-                        key={destination.id}
-                        variants={itemVariants}
-                        layout
-                      >
-                        <DestinationCard
-                          destination={destination}
-                          isSelected={compareList.some(d => d.id === destination.id)}
-                          onSelect={() => handleSelectDestination(destination)}
-                          onCompare={() => toggleCompare(destination)}
-                          onViewDetails={() => handleSelectDestination(destination)}
-                          onFlexibleDates={() => {
-                            setSelectedFlexDestination(destination);
-                            setFlexibilityModalOpen(true);
-                          }}
-                          compareCount={compareList.length}
-                        />
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                </motion.div>
               </>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-16"
-              >
-                <Compass className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-display font-semibold text-foreground mb-2">
-                  No destinations found
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  Try adjusting your filters or increasing your budget.
-                </p>
-                <Button variant="outline" onClick={resetFilters}>
-                  Reset Filters
-                </Button>
-              </motion.div>
             )}
             
-            {/* Ghost Trips Section */}
+            {/* Ghost Trips Section - show below map or list */}
             <GhostTripsSection
               budget={tripSearch.budget}
               startDate={tripSearch.dates.start || new Date()}

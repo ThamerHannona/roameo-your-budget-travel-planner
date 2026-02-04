@@ -278,3 +278,52 @@
     background: hsl(var(--primary)) !important;
   }
 }
+
+/* Leaflet Map Marker Animations */
+.custom-price-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.price-marker {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.price-marker:hover {
+  transform: scale(1.15) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+.marker-selected {
+  transform: scale(1.2) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+.marker-pulse {
+  animation: marker-pulse 2s ease-in-out infinite;
+}
+
+@keyframes marker-pulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 12px rgba(16, 185, 129, 0);
+  }
+}
+
+/* Leaflet container overrides */
+.leaflet-container {
+  background: hsl(var(--card)) !important;
+  font-family: var(--font-sans) !important;
+}
+
+.leaflet-control-attribution {
+  background: hsl(var(--card) / 0.8) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 10px !important;
+}
+
+.leaflet-control-attribution a {
+  color: hsl(var(--primary)) !important;
+}
