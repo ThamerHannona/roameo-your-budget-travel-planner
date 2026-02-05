@@ -9,6 +9,7 @@ export interface FlightOption {
   stops: number;
   layover?: string;
   direct?: boolean;
+  bookingUrl?: string;
 }
 
 export interface HotelTier {
@@ -18,6 +19,7 @@ export interface HotelTier {
   totalPrice: number;
   description: string;
   amenities: string[];
+  bookingUrl?: string;
 }
 
 export interface ActivityTier {

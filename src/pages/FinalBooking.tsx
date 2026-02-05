@@ -112,6 +112,7 @@ export default function FinalBooking() {
 
   // Extract bookable items from itinerary
   const bookingItems: BookingItem[] = [];
+  
   // Build proper search URLs with dates and destination
   const formatDateForUrl = (date: Date) => date.toISOString().split('T')[0];
   const departDate = formatDateForUrl(tripDates.start);
@@ -126,10 +127,10 @@ export default function FinalBooking() {
     type: 'flight',
     name: `Flight to ${destination.name}`,
     description: selectedFlight 
-      ? `${selectedFlight.airline} • ${selectedFlight.duration} • ${selectedFlight.stops === 0 ? 'Direct' : `${selectedFlight.stops} stop(s)`}`
+      ? `${selectedFlight.airline} • ${selectedFlight.duration} • ${selectedFlight.direct || selectedFlight.stops === 0 ? 'Direct' : `${selectedFlight.stops} stop(s)`}`
       : 'Round-trip economy • Multiple airlines available',
     price: flightCost,
-    bookingUrl: flightSearchUrl,
+    bookingUrl: selectedFlight?.bookingUrl || flightSearchUrl,
     isBooked: bookedItems.has('flight-outbound'),
     date: tripDates.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     provider: 'Google Flights',
@@ -144,12 +145,12 @@ export default function FinalBooking() {
       ? `${selectedHotel.name} • ${selectedHotel.amenities.slice(0, 2).join(', ')}`
       : `${destination.name} • Various options available`,
     price: hotelCost,
-    bookingUrl: hotelSearchUrl,
+    bookingUrl: selectedHotel?.bookingUrl || hotelSearchUrl,
     isBooked: bookedItems.has('hotel-stay'),
     provider: 'Google Hotels',
   });
 
-  // Add activities from itinerary
+  // Add activities from itinerary (skip flight/hotel items as they're already added above)
   days.forEach((day) => {
     day.activities.forEach((activity) => {
       if (activity.bookingUrl && activity.cost > 0 && activity.type !== 'flight' && activity.type !== 'hotel') {
@@ -169,13 +170,21 @@ export default function FinalBooking() {
     });
   });
 
-  // Calculate totals - flight already includes all travelers
+  // Calculate totals - flight and hotel costs from budget store already include all travelers
   const flightTotal = flightCost;
   const hotelTotal = hotelCost;
-  const activityTotal = bookingItems
-    .filter(i => i.type === 'activity')
-    .reduce((sum, i) => sum + i.price, 0) * travelers;
-  const grandTotal = flightTotal + hotelTotal + activityTotal;
+  
+  // Activities from itinerary are per person - multiply by travelers
+  const activityItems = bookingItems.filter(i => i.type === 'activity');
+  const activityTotal = activityItems.reduce((sum, i) => sum + i.price, 0) * travelers;
+  
+  // Get food/transport budgets from store for accurate total
+  const foodTotal = destinationBudget.constraints.food.current;
+  const transportTotal = destinationBudget.constraints.transport.current;
+  const activitiesFromStore = destinationBudget.constraints.activities.current;
+  
+  // Use store values for grand total (most accurate as they track user selections)
+  const grandTotal = flightTotal + hotelTotal + activitiesFromStore + foodTotal + transportTotal;
 
   const bookedCount = bookedItems.size;
   const progress = (bookedCount / bookingItems.length) * 100;
