@@ -159,16 +159,17 @@ export default function RealTimeBudgetAllocation() {
     const travelers = tripSearch.travelers || 1;
     
     // Map SerpAPI flight options to store format
-    // Store total price (per-person × travelers) but keep perPersonPrice for display
+    // SerpAPI already returns total price for all travelers when `adults` param is passed
     const mappedOptions: FlightOption[] = result.options.map((opt, index) => ({
       airline: opt.airline,
       flightNumber: opt.flightNumber,
-      price: opt.price * travelers, // Total price for all travelers
-      pricePerPerson: opt.price, // Keep per-person for display
+      price: opt.price, // Already total price for all travelers from SerpAPI
+      pricePerPerson: Math.round(opt.price / travelers), // Calculate per-person for display
       duration: opt.duration,
       stops: opt.layovers,
       layover: opt.layoverDuration || undefined,
       direct: opt.layovers === 0,
+      bookingUrl: opt.bookingUrl,
     }));
 
     // Sort by price and assign tiers
@@ -214,6 +215,7 @@ export default function RealTimeBudgetAllocation() {
           totalPrice: bestHotel.totalPrice,
           description: `${tierLabel.replace('★', '-star')} accommodation`,
           amenities: bestHotel.amenities || ['WiFi', 'Parking'],
+          bookingUrl: bestHotel.bookingUrl,
         });
       }
     });
