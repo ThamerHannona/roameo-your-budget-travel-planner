@@ -1,9 +1,79 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Rate limiting configuration
+const RATE_LIMITS = {
+  anonymous: { maxRequests: 5, windowMs: 60 * 60 * 1000 }, // 5 per hour
+  authenticated: { maxRequests: 20, windowMs: 60 * 60 * 1000 }, // 20 per hour
+};
+
+// In-memory rate limit store (resets on cold start, but provides protection during active use)
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function getClientIP(req: Request): string {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+         req.headers.get('x-real-ip') ||
+         'unknown';
+}
+
+async function getUserIdFromAuth(req: Request): Promise<string | null> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) return null;
+
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    
+    const token = authHeader.replace('Bearer ', '');
+    const { data, error } = await supabase.auth.getUser(token);
+    
+    if (error || !data?.user) return null;
+    return data.user.id;
+  } catch {
+    return null;
+  }
+}
+
+function checkRateLimit(identifier: string, isAuthenticated: boolean): { allowed: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const limits = isAuthenticated ? RATE_LIMITS.authenticated : RATE_LIMITS.anonymous;
+  
+  const record = rateLimitStore.get(identifier);
+  
+  if (!record || now > record.resetTime) {
+    // New window or expired - reset counter
+    rateLimitStore.set(identifier, { count: 1, resetTime: now + limits.windowMs });
+    return { allowed: true };
+  }
+  
+  if (record.count >= limits.maxRequests) {
+    // Rate limited
+    const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+    return { allowed: false, retryAfter };
+  }
+  
+  // Increment counter
+  record.count++;
+  return { allowed: true };
+}
+
+// Clean up old entries periodically (runs on each request, but only cleans if needed)
+function cleanupRateLimitStore(): void {
+  const now = Date.now();
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (now > value.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+}
 
 interface HotelSearchParams {
   destination: string;
@@ -103,7 +173,38 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Clean up expired rate limit entries periodically
+  cleanupRateLimitStore();
+
   try {
+    // Check rate limiting
+    const userId = await getUserIdFromAuth(req);
+    const isAuthenticated = !!userId;
+    const identifier = userId || getClientIP(req);
+    
+    const rateLimitResult = checkRateLimit(identifier, isAuthenticated);
+    
+    if (!rateLimitResult.allowed) {
+      console.log(`Rate limited: ${identifier} (authenticated: ${isAuthenticated})`);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded', 
+          retryAfter: rateLimitResult.retryAfter,
+          useMock: true 
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Retry-After': String(rateLimitResult.retryAfter || 3600)
+          } 
+        }
+      );
+    }
+    
+    console.log(`Request allowed for: ${identifier} (authenticated: ${isAuthenticated})`);
+
     const serpApiKey = Deno.env.get('SERPAPI_KEY');
     
     if (!serpApiKey) {
