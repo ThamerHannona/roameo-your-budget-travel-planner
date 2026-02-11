@@ -332,6 +332,8 @@ export default function Discover() {
           travelers={tripSearch.travelers}
           resultCount={filteredDestinations.length}
           onEdit={() => navigate('/')}
+          isLiveData={hasSearchedFlights}
+          hasMockData={flightSearch.hasMockData}
         />
         
         {/* Flight search error */}
