@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, Users, DollarSign, Pencil } from 'lucide-react';
+import { Calendar, MapPin, Users, DollarSign, Pencil, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 
 interface SearchSummaryHeaderProps {
@@ -13,6 +14,8 @@ interface SearchSummaryHeaderProps {
   travelers: number;
   resultCount: number;
   onEdit: () => void;
+  isLiveData?: boolean;
+  hasMockData?: boolean;
 }
 
 export function SearchSummaryHeader({
@@ -24,6 +27,8 @@ export function SearchSummaryHeader({
   travelers,
   resultCount,
   onEdit,
+  isLiveData = false,
+  hasMockData = true,
 }: SearchSummaryHeaderProps) {
   const dateRange = startDate && endDate 
     ? `${format(startDate, 'MMM d')} - ${format(endDate, 'MMM d, yyyy')}`
@@ -65,6 +70,37 @@ export function SearchSummaryHeader({
         
         {/* Actions */}
         <div className="flex items-center gap-3">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge 
+                  variant="outline" 
+                  className={`gap-1.5 py-1.5 px-3 text-xs font-medium cursor-default ${
+                    isLiveData && !hasMockData
+                      ? 'bg-success/10 text-success border-success/30'
+                      : hasMockData && isLiveData
+                      ? 'bg-warning/10 text-warning border-warning/30'
+                      : 'bg-muted text-muted-foreground border-border'
+                  }`}
+                >
+                  {isLiveData && !hasMockData ? (
+                    <><Wifi className="h-3 w-3" /> Live prices</>
+                  ) : hasMockData && isLiveData ? (
+                    <><Wifi className="h-3 w-3" /> Partial live data</>
+                  ) : (
+                    <><WifiOff className="h-3 w-3" /> Estimated prices</>
+                  )}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isLiveData && !hasMockData
+                  ? 'All prices are from real-time API searches'
+                  : hasMockData && isLiveData
+                  ? 'Some prices are live, others are estimates'
+                  : 'Prices are estimated — live search not available'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <span className="text-sm font-medium text-muted-foreground">
             {resultCount} destinations found
           </span>
