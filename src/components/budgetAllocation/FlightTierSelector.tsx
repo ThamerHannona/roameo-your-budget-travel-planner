@@ -200,23 +200,15 @@ export function FlightTierSelector({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={(e) => {
-              e.stopPropagation();
-              // Construct Google Flights URL
-              window.open(
-                `https://www.google.com/travel/flights`,
-                '_blank',
-                'noopener,noreferrer'
-              );
-            }}
+          <a
+            href={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/out?url=${encodeURIComponent('https://www.google.com/travel/flights')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center w-full gap-2 px-3 py-2 text-sm font-medium border rounded-md bg-background hover:bg-accent transition-colors"
           >
-            <ArrowUpRight className="h-4 w-4 mr-2" />
+            <ArrowUpRight className="h-4 w-4" />
             View on Google Flights
-          </Button>
+          </a>
         </motion.div>
       )}
     </div>
