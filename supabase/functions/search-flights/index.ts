@@ -280,7 +280,16 @@ serve(async (req) => {
     const data = await response.json();
 
     if (data.error) {
-      console.error('SerpAPI error in response:', data.error);
+      console.warn('SerpAPI returned error:', data.error);
+      // Treat "no results" as empty rather than a hard error
+      const noResultsPhrases = ["hasn't returned any results", "no results"];
+      const isNoResults = noResultsPhrases.some(p => data.error.toLowerCase().includes(p));
+      if (isNoResults) {
+        return new Response(
+          JSON.stringify({ ok: true, origin, destination, options: [], results: [], searchUrl: '', searchDate: new Date().toISOString(), totalFound: 0 }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       return new Response(
         JSON.stringify({ ok: false, error: data.error }),
         { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
