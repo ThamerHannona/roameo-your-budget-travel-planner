@@ -201,7 +201,7 @@ export function FlightTierSelector({
           animate={{ opacity: 1, y: 0 }}
         >
           <a
-            href={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/out?url=${encodeURIComponent('https://www.google.com/travel/flights')}`}
+            href="https://www.google.com/travel/flights"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center w-full gap-2 px-3 py-2 text-sm font-medium border rounded-md bg-background hover:bg-accent transition-colors"
