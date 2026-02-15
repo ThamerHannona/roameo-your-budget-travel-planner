@@ -191,11 +191,7 @@ export default function FinalBooking() {
 
   const handleBookItem = (item: BookingItem) => {
     if (item.bookingUrl) {
-      window.open(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/out?url=${encodeURIComponent(item.bookingUrl)}`,
-        '_blank',
-        'noopener,noreferrer'
-      );
+      window.open(item.bookingUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -574,7 +570,7 @@ function BookingItemRow({
         {!isBooked && (
           item.bookingUrl ? (
             <a
-              href={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/out?url=${encodeURIComponent(item.bookingUrl)}`}
+              href={item.bookingUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 mt-1 px-3 py-1.5 text-sm font-medium border rounded-md bg-background hover:bg-accent transition-colors"
