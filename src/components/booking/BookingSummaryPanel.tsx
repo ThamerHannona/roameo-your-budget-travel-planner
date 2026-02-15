@@ -200,7 +200,7 @@ export function BookingSummaryPanel({
                     </Badge>
                   ) : item.bookingUrl ? (
                     <a
-                      href={item.bookingUrl}
+                      href={`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/out?url=${encodeURIComponent(item.bookingUrl)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-primary hover:underline flex items-center gap-0.5"
