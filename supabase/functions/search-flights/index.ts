@@ -3,16 +3,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 // Rate limiting configuration
 const RATE_LIMITS = {
-  anonymous: { maxRequests: 5, windowMs: 60 * 60 * 1000 }, // 5 per hour
-  authenticated: { maxRequests: 20, windowMs: 60 * 60 * 1000 }, // 20 per hour
+  anonymous: { maxRequests: 5, windowMs: 60 * 60 * 1000 },
+  authenticated: { maxRequests: 20, windowMs: 60 * 60 * 1000 },
 };
 
-// In-memory rate limit store (resets on cold start, but provides protection during active use)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 function getClientIP(req: Request): string {
@@ -24,17 +23,14 @@ function getClientIP(req: Request): string {
 async function getUserIdFromAuth(req: Request): Promise<string | null> {
   const authHeader = req.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ')) return null;
-
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
-    
     const token = authHeader.replace('Bearer ', '');
     const { data, error } = await supabase.auth.getUser(token);
-    
     if (error || !data?.user) return null;
     return data.user.id;
   } catch {
@@ -45,42 +41,45 @@ async function getUserIdFromAuth(req: Request): Promise<string | null> {
 function checkRateLimit(identifier: string, isAuthenticated: boolean): { allowed: boolean; retryAfter?: number } {
   const now = Date.now();
   const limits = isAuthenticated ? RATE_LIMITS.authenticated : RATE_LIMITS.anonymous;
-  
   const record = rateLimitStore.get(identifier);
-  
   if (!record || now > record.resetTime) {
-    // New window or expired - reset counter
     rateLimitStore.set(identifier, { count: 1, resetTime: now + limits.windowMs });
     return { allowed: true };
   }
-  
   if (record.count >= limits.maxRequests) {
-    // Rate limited
     const retryAfter = Math.ceil((record.resetTime - now) / 1000);
     return { allowed: false, retryAfter };
   }
-  
-  // Increment counter
   record.count++;
   return { allowed: true };
 }
 
-// Clean up old entries periodically (runs on each request, but only cleans if needed)
 function cleanupRateLimitStore(): void {
   const now = Date.now();
   for (const [key, value] of rateLimitStore.entries()) {
-    if (now > value.resetTime) {
-      rateLimitStore.delete(key);
-    }
+    if (now > value.resetTime) rateLimitStore.delete(key);
   }
 }
 
-interface FlightSearchParams {
-  origin: string;
-  destination: string;
-  departureDate: string;
-  returnDate: string;
-  adults?: number;
+// Map cabin names to SerpAPI travel_class values
+function mapCabinToTravelClass(cabin?: string): string {
+  switch (cabin?.toLowerCase()) {
+    case 'business': return '2';
+    case 'first': return '3';
+    case 'premium_economy': return '4';
+    case 'economy':
+    default: return '1';
+  }
+}
+
+function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours}h ${mins}m`;
+}
+
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 11);
 }
 
 interface SerpApiFlightSegment {
@@ -98,80 +97,63 @@ interface SerpApiFlight {
   price: number;
   layovers?: Array<{ name: string; duration: number; id: string }>;
   booking_token?: string;
-  type?: string;
 }
 
-interface SerpApiResponse {
-  best_flights?: SerpApiFlight[];
-  other_flights?: SerpApiFlight[];
-  search_metadata?: {
-    google_flights_url?: string;
-  };
-  error?: string;
-}
-
-interface FlightOption {
-  id: string;
+interface NormalizedResult {
   price: number;
   airline: string;
-  flightNumber: string;
-  departure: {
-    time: string;
-    airport: string;
-    city: string;
-  };
-  arrival: {
-    time: string;
-    airport: string;
-    city: string;
-  };
-  duration: string;
-  layovers: number;
-  layoverCities: string[];
-  layoverDuration: string;
-  bookingUrl: string;
-  tier: 'budget' | 'mid' | 'premium';
-  airlineLogo?: string;
+  departTime: string;
+  arriveTime: string;
+  durationMin: number;
+  stops: number;
+  bookingLink: string;
 }
 
-function formatDuration(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours}h ${mins}m`;
+function normalizeFlights(
+  bestFlights: SerpApiFlight[],
+  otherFlights: SerpApiFlight[],
+  searchUrl: string
+): NormalizedResult[] {
+  const all = [...bestFlights, ...otherFlights];
+  return all.map((f) => {
+    const first = f.flights[0];
+    const last = f.flights[f.flights.length - 1];
+    return {
+      price: f.price,
+      airline: first.airline,
+      departTime: first.departure_airport.time,
+      arriveTime: last.arrival_airport.time,
+      durationMin: f.total_duration,
+      stops: f.flights.length - 1,
+      bookingLink: searchUrl,
+    };
+  });
 }
 
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 11);
-}
-
+// Also keep the legacy tier-based transform for POST callers
 function categorizeTier(
   flights: SerpApiFlight[],
   currentIndex: number
 ): 'budget' | 'mid' | 'premium' {
   if (flights.length <= 1) return 'mid';
-  
   const prices = flights.map(f => f.price).sort((a, b) => a - b);
   const currentPrice = flights[currentIndex].price;
   const priceIndex = prices.indexOf(currentPrice);
-  
   const position = priceIndex / (prices.length - 1);
-  
   if (position <= 0.33) return 'budget';
   if (position <= 0.66) return 'mid';
   return 'premium';
 }
 
-function transformFlight(
+function transformFlightLegacy(
   flight: SerpApiFlight,
   searchUrl: string,
   tier: 'budget' | 'mid' | 'premium'
-): FlightOption {
+) {
   const firstSegment = flight.flights[0];
   const lastSegment = flight.flights[flight.flights.length - 1];
-  
   const layoverCities = flight.layovers?.map(l => l.name) || [];
   const totalLayoverMinutes = flight.layovers?.reduce((sum, l) => sum + l.duration, 0) || 0;
-  
   return {
     id: generateId(),
     price: flight.price,
@@ -198,152 +180,150 @@ function transformFlight(
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Clean up expired rate limit entries periodically
   cleanupRateLimitStore();
 
   try {
-    // Check rate limiting
+    // Rate limiting
     const userId = await getUserIdFromAuth(req);
     const isAuthenticated = !!userId;
     const identifier = userId || getClientIP(req);
-    
     const rateLimitResult = checkRateLimit(identifier, isAuthenticated);
-    
     if (!rateLimitResult.allowed) {
-      console.log(`Rate limited: ${identifier} (authenticated: ${isAuthenticated})`);
       return new Response(
-        JSON.stringify({ 
-          error: 'Rate limit exceeded', 
-          retryAfter: rateLimitResult.retryAfter,
-          useMock: true 
-        }),
-        { 
-          status: 429, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json',
-            'Retry-After': String(rateLimitResult.retryAfter || 3600)
-          } 
-        }
+        JSON.stringify({ ok: false, error: 'Rate limit exceeded', retryAfter: rateLimitResult.retryAfter }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(rateLimitResult.retryAfter || 3600) } }
       );
     }
-    
-    console.log(`Request allowed for: ${identifier} (authenticated: ${isAuthenticated})`);
 
     const serpApiKey = Deno.env.get('SERPAPI_KEY');
-    
     if (!serpApiKey) {
       console.error('SERPAPI_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'API key not configured', useMock: true }),
+        JSON.stringify({ ok: false, error: 'API key not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const params: FlightSearchParams = await req.json();
-    const { origin, destination, departureDate, returnDate, adults = 1 } = params;
+    // Support both GET (query params) and POST (JSON body)
+    let origin: string, destination: string, departureDate: string;
+    let returnDate: string | undefined;
+    let adults = 1;
+    let cabin = 'economy';
+    let isGetRequest = false;
 
-    console.log(`Searching flights: ${origin} → ${destination} on ${departureDate}`);
+    if (req.method === 'GET') {
+      isGetRequest = true;
+      const url = new URL(req.url);
+      origin = url.searchParams.get('origin') || '';
+      destination = url.searchParams.get('destination') || '';
+      departureDate = url.searchParams.get('departDate') || '';
+      returnDate = url.searchParams.get('returnDate') || undefined;
+      adults = parseInt(url.searchParams.get('adults') || '1', 10);
+      cabin = url.searchParams.get('cabin') || 'economy';
+    } else {
+      const body = await req.json();
+      origin = body.origin || '';
+      destination = body.destination || '';
+      departureDate = body.departureDate || body.departDate || '';
+      returnDate = body.returnDate || undefined;
+      adults = body.adults || 1;
+      cabin = body.cabin || 'economy';
+    }
 
-    // Build SerpAPI request URL
+    if (!origin || !destination || !departureDate) {
+      return new Response(
+        JSON.stringify({ ok: false, error: 'Missing required parameters: origin, destination, departDate' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Searching flights: ${origin} → ${destination} on ${departureDate}, cabin=${cabin}`);
+
+    // Build SerpAPI request
     const searchParams = new URLSearchParams({
       engine: 'google_flights',
       api_key: serpApiKey,
       departure_id: origin,
       arrival_id: destination,
       outbound_date: departureDate,
-      return_date: returnDate,
       adults: adults.toString(),
       currency: 'USD',
       hl: 'en',
-      type: '1', // Round trip
+      travel_class: mapCabinToTravelClass(cabin),
     });
+
+    if (returnDate) {
+      searchParams.set('return_date', returnDate);
+      searchParams.set('type', '1'); // Round trip
+    } else {
+      searchParams.set('type', '2'); // One way
+    }
 
     const apiUrl = `https://serpapi.com/search.json?${searchParams}`;
     console.log('Calling SerpAPI:', apiUrl.replace(serpApiKey, 'REDACTED'));
 
     const response = await fetch(apiUrl);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('SerpAPI error:', response.status, errorText);
+      console.error('SerpAPI HTTP error:', response.status, errorText);
       return new Response(
-        JSON.stringify({ error: `SerpAPI error: ${response.status}`, useMock: true }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ ok: false, error: `SerpAPI returned ${response.status}`, debug: errorText }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data: SerpApiResponse = await response.json();
-    
+    const data = await response.json();
+
     if (data.error) {
-      console.log('SerpAPI returned no results, using mock data:', data.error);
-      // Return 200 with useMock flag - this is a valid response, not an error
+      console.error('SerpAPI error in response:', data.error);
       return new Response(
-        JSON.stringify({ 
-          origin, 
-          destination, 
-          options: [], 
-          searchUrl: `https://www.google.com/travel/flights?q=flights+from+${origin}+to+${destination}`,
-          searchDate: new Date().toISOString(),
-          useMock: true,
-          error: data.error 
-        }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ ok: false, error: data.error }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Combine and sort flights by price
-    const allFlights = [
-      ...(data.best_flights || []),
-      ...(data.other_flights || []),
-    ].sort((a, b) => a.price - b.price);
+    const bestFlights: SerpApiFlight[] = data.best_flights || [];
+    const otherFlights: SerpApiFlight[] = data.other_flights || [];
+    const allFlights = [...bestFlights, ...otherFlights].sort((a, b) => a.price - b.price);
 
-    if (allFlights.length === 0) {
-      console.log('No flights found');
+    const searchUrl = data.search_metadata?.google_flights_url ||
+      `https://www.google.com/travel/flights?q=flights+from+${origin}+to+${destination}`;
+
+    // For GET requests, return normalized format
+    if (isGetRequest) {
+      const results = normalizeFlights(bestFlights, otherFlights, searchUrl);
       return new Response(
-        JSON.stringify({
-          origin,
-          destination,
-          options: [],
-          searchUrl: data.search_metadata?.google_flights_url || '',
-          searchDate: new Date().toISOString(),
-        }),
+        JSON.stringify({ ok: true, results }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const searchUrl = data.search_metadata?.google_flights_url || 
-      `https://www.google.com/travel/flights?q=flights+from+${origin}+to+${destination}`;
-
-    // Select 3 representative flights: budget, mid, premium
-    let selectedFlights: FlightOption[] = [];
-    
-    if (allFlights.length <= 3) {
-      selectedFlights = allFlights.map((f, i) => 
-        transformFlight(f, searchUrl, categorizeTier(allFlights, i))
+    // For POST requests (legacy), return tier-based format
+    if (allFlights.length === 0) {
+      return new Response(
+        JSON.stringify({ ok: true, origin, destination, options: [], searchUrl, searchDate: new Date().toISOString(), totalFound: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    let selectedFlights: any[] = [];
+    if (allFlights.length <= 3) {
+      selectedFlights = allFlights.map((f, i) => transformFlightLegacy(f, searchUrl, categorizeTier(allFlights, i)));
     } else {
-      // Pick budget (cheapest), mid (middle), premium (direct or fastest)
       const budgetFlight = allFlights[0];
-      const midIndex = Math.floor(allFlights.length / 2);
-      const midFlight = allFlights[midIndex];
-      
-      // Find direct/fastest for premium
+      const midFlight = allFlights[Math.floor(allFlights.length / 2)];
       const directFlight = allFlights.find(f => f.flights.length === 1);
       const premiumFlight = directFlight || allFlights[allFlights.length - 1];
-      
       selectedFlights = [
-        transformFlight(budgetFlight, searchUrl, 'budget'),
-        transformFlight(midFlight, searchUrl, 'mid'),
-        transformFlight(premiumFlight, searchUrl, 'premium'),
+        transformFlightLegacy(budgetFlight, searchUrl, 'budget'),
+        transformFlightLegacy(midFlight, searchUrl, 'mid'),
+        transformFlightLegacy(premiumFlight, searchUrl, 'premium'),
       ];
-      
-      // Dedupe by price
       const seenPrices = new Set<number>();
       selectedFlights = selectedFlights.filter(f => {
         if (seenPrices.has(f.price)) return false;
@@ -354,24 +334,16 @@ serve(async (req) => {
 
     console.log(`Found ${selectedFlights.length} flight options`);
 
-    const result = {
-      origin,
-      destination,
-      options: selectedFlights,
-      searchUrl,
-      searchDate: new Date().toISOString(),
-      totalFound: allFlights.length,
-    };
-
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ ok: true, origin, destination, options: selectedFlights, searchUrl, searchDate: new Date().toISOString(), totalFound: allFlights.length }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
     console.error('Flight search error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: errorMessage, useMock: true }),
+      JSON.stringify({ ok: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
