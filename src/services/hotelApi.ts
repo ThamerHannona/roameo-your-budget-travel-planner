@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { shouldUseMockData } from '@/config/apiSettings';
 
 // Types for hotel data
 export interface HotelOption {
@@ -50,15 +49,11 @@ function getFromCache(key: string): HotelSearchResult | null {
   try {
     const cached = localStorage.getItem(key);
     if (!cached) return null;
-    
     const entry: CacheEntry = JSON.parse(cached);
-    const age = Date.now() - entry.timestamp;
-    
-    if (age < CACHE_DURATION_MS) {
-      console.log(`Hotel cache hit for ${key}, age: ${Math.round(age / 1000)}s`);
+    if (Date.now() - entry.timestamp < CACHE_DURATION_MS) {
+      if (import.meta.env.DEV) console.log(`Hotel cache hit for ${key}`);
       return entry.data;
     }
-    
     localStorage.removeItem(key);
     return null;
   } catch {
@@ -68,153 +63,123 @@ function getFromCache(key: string): HotelSearchResult | null {
 
 function setCache(key: string, data: HotelSearchResult): void {
   try {
-    const entry: CacheEntry = {
-      data,
-      timestamp: Date.now(),
-    };
-    localStorage.setItem(key, JSON.stringify(entry));
+    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
   } catch (e) {
-    console.warn('Failed to cache hotel data:', e);
+    if (import.meta.env.DEV) console.warn('Failed to cache hotel data:', e);
   }
 }
 
-// Mock hotel data for fallback
-function generateMockHotels(
-  destination: string,
-  nights: number
-): HotelOption[] {
-  const basePrice3Star = 80 + Math.random() * 40;
-  const basePrice4Star = 150 + Math.random() * 50;
-  const basePrice5Star = 280 + Math.random() * 100;
-  
-  return [
-    {
-      id: `mock-3star-${destination}`,
-      name: 'City Center Hotel',
-      pricePerNight: Math.round(basePrice3Star),
-      totalPrice: Math.round(basePrice3Star * nights),
-      rating: 3.8,
-      reviewCount: 342,
-      tier: '3-star',
-      amenities: ['WiFi', 'Air Conditioning', 'Breakfast'],
-      imageUrl: 'https://placehold.co/400x300',
-      bookingUrl: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`,
-      location: destination,
-    },
-    {
-      id: `mock-4star-${destination}`,
-      name: 'Premium Boutique Hotel',
-      pricePerNight: Math.round(basePrice4Star),
-      totalPrice: Math.round(basePrice4Star * nights),
-      rating: 4.3,
-      reviewCount: 856,
-      tier: '4-star',
-      amenities: ['WiFi', 'Pool', 'Gym', 'Spa', 'Restaurant'],
-      imageUrl: 'https://placehold.co/400x300',
-      bookingUrl: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`,
-      location: destination,
-    },
-    {
-      id: `mock-5star-${destination}`,
-      name: 'Luxury Grand Resort',
-      pricePerNight: Math.round(basePrice5Star),
-      totalPrice: Math.round(basePrice5Star * nights),
-      rating: 4.8,
-      reviewCount: 1245,
-      tier: '5-star',
-      amenities: ['WiFi', 'Pool', 'Spa', 'Fine Dining', 'Concierge', 'Rooftop Bar'],
-      imageUrl: 'https://placehold.co/400x300',
-      bookingUrl: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`,
-      location: destination,
-    },
-  ];
+function categorizeTier(rating: number | null, price: number | null, index: number, total: number): '3-star' | '4-star' | '5-star' {
+  if (rating !== null) {
+    if (rating >= 4.5) return '5-star';
+    if (rating >= 4.0) return '4-star';
+    return '3-star';
+  }
+  // Fallback: use position in sorted list
+  if (total <= 1) return '4-star';
+  if (index === 0) return '3-star';
+  if (index === total - 1) return '5-star';
+  return '4-star';
 }
 
 function calculateNights(checkIn: string, checkOut: string): number {
-  const start = new Date(checkIn);
-  const end = new Date(checkOut);
-  return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+  return Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)));
 }
 
 /**
- * Fetch hotel options from SerpAPI via edge function
+ * Fetch hotel options from SerpAPI via edge function - NO mock fallback
  */
 export async function fetchHotelOptions(
   params: HotelSearchParams
 ): Promise<HotelSearchResult> {
   const { destination, checkIn, checkOut, adults = 2 } = params;
   const nights = calculateNights(checkIn, checkOut);
-  
+
   // Check cache first
   const cacheKey = getCacheKey(params);
   const cached = getFromCache(cacheKey);
-  if (cached) {
-    return cached;
+  if (cached) return cached;
+
+  if (import.meta.env.DEV) console.log(`Fetching hotels in: ${destination}`);
+
+  const { data, error } = await supabase.functions.invoke('search-hotels', {
+    body: { destination, checkIn, checkOut, adults },
+  });
+
+  if (error) {
+    throw new Error(`Hotel search failed: ${error.message}`);
   }
-  
-  // Check if we should use mock data
-  if (shouldUseMockData()) {
-    console.log(`Using mock hotel data for ${destination} (API calls disabled)`);
-    const mockResult: HotelSearchResult = {
+
+  if (data.ok === false) {
+    throw new Error(data.error || 'Hotel search returned an error');
+  }
+
+  // Normalize the new response format into HotelOption[]
+  const rawResults: any[] = data.results || [];
+  const searchUrl = data.searchUrl || `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination)}`;
+
+  if (rawResults.length === 0) {
+    const emptyResult: HotelSearchResult = {
       destination,
-      options: generateMockHotels(destination, nights),
-      searchUrl: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`,
+      options: [],
+      searchUrl,
       searchDate: new Date().toISOString(),
-      useMock: true,
+      totalFound: 0,
     };
-    setCache(cacheKey, mockResult);
-    return mockResult;
+    return emptyResult;
   }
-  
-  try {
-    console.log(`Fetching hotels in: ${destination}`);
-    
-    const { data, error } = await supabase.functions.invoke('search-hotels', {
-      body: {
-        destination,
-        checkIn,
-        checkOut,
-        adults,
-      },
+
+  // Sort by price for tier assignment
+  const withPrices = rawResults.filter(r => r.price || r.totalPrice || r.pricePerNight);
+  withPrices.sort((a, b) => (a.price || a.pricePerNight || 0) - (b.price || b.pricePerNight || 0));
+
+  const options: HotelOption[] = withPrices.map((r, idx) => {
+    const pricePerNight = r.pricePerNight || r.price || 0;
+    const totalPrice = r.totalPrice || pricePerNight * nights;
+    return {
+      id: `hotel-${idx}-${Date.now()}`,
+      name: r.name,
+      pricePerNight: Math.round(pricePerNight),
+      totalPrice: Math.round(totalPrice),
+      rating: r.rating || 0,
+      reviewCount: r.reviews || 0,
+      tier: categorizeTier(r.rating, pricePerNight, idx, withPrices.length),
+      amenities: r.amenities || [],
+      imageUrl: r.thumbnail || 'https://placehold.co/400x300',
+      bookingUrl: r.link || searchUrl,
+      location: destination,
+    };
+  });
+
+  // Pick representative hotels per tier (budget/mid/premium)
+  let selectedOptions = options;
+  if (options.length > 3) {
+    const budget = options[0];
+    const mid = options[Math.floor(options.length / 2)];
+    const premium = [...options].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
+
+    const seen = new Set<string>();
+    selectedOptions = [
+      { ...budget, tier: '3-star' as const },
+      { ...mid, tier: '4-star' as const },
+      { ...premium, tier: '5-star' as const },
+    ].filter(h => {
+      if (seen.has(h.name)) return false;
+      seen.add(h.name);
+      return true;
     });
-    
-    if (error) {
-      console.error('Edge function error:', error);
-      throw new Error(error.message);
-    }
-    
-    if (data.useMock || data.error || !data.options?.length) {
-      console.warn('Using mock hotel data:', data.error);
-      const mockResult: HotelSearchResult = {
-        destination,
-        options: generateMockHotels(destination, nights),
-        searchUrl: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`,
-        searchDate: new Date().toISOString(),
-        useMock: true,
-      };
-      setCache(cacheKey, mockResult);
-      return mockResult;
-    }
-    
-    // Cache successful result
-    setCache(cacheKey, data);
-    return data;
-    
-  } catch (error) {
-    console.error('Hotel search failed:', error);
-    
-    // Return mock data on failure
-    const mockResult: HotelSearchResult = {
-      destination,
-      options: generateMockHotels(destination, nights),
-      searchUrl: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`,
-      searchDate: new Date().toISOString(),
-      useMock: true,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-    
-    return mockResult;
   }
+
+  const result: HotelSearchResult = {
+    destination,
+    options: selectedOptions,
+    searchUrl,
+    searchDate: new Date().toISOString(),
+    totalFound: data.totalFound || rawResults.length,
+  };
+
+  setCache(cacheKey, result);
+  return result;
 }
 
 /**
@@ -237,5 +202,5 @@ export function clearHotelCache(): void {
       localStorage.removeItem(key);
     }
   });
-  console.log('Hotel cache cleared');
+  if (import.meta.env.DEV) console.log('Hotel cache cleared');
 }
