@@ -176,12 +176,28 @@ export function FlightTierSelector({
                   </div>
                 </div>
 
+                {/* Booking link */}
+                {flight.bookingUrl && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <a
+                      href={flight.bookingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      Book on Google Flights
+                    </a>
+                  </div>
+                )}
+
                 {/* Trade-off hint for selected */}
                 {isSelected && savings && flight.tier !== 'budget' && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-3 pt-3 border-t border-border"
+                    className="mt-2 pt-2 border-t border-border"
                   >
                     <p className="text-xs text-muted-foreground">
                       💡 Choosing budget flight saves ${savings} → could add {Math.floor(savings / 50)} more activities
@@ -193,24 +209,6 @@ export function FlightTierSelector({
           })}
         </AnimatePresence>
       </div>
-
-      {/* Book on Google Flights */}
-      {selectedFlight && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <a
-            href="https://www.google.com/travel/flights"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center w-full gap-2 px-3 py-2 text-sm font-medium border rounded-md bg-background hover:bg-accent transition-colors"
-          >
-            <ArrowUpRight className="h-4 w-4" />
-            View on Google Flights
-          </a>
-        </motion.div>
-      )}
     </div>
   );
 }
