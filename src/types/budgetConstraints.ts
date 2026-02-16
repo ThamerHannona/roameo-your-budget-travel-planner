@@ -20,6 +20,7 @@ export interface HotelTier {
   description: string;
   amenities: string[];
   bookingUrl?: string;
+  imageUrl?: string;
 }
 
 export interface ActivityTier {

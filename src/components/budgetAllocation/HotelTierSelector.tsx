@@ -149,11 +149,25 @@ export function HotelTierSelector({
                   )}
                 </div>
 
-                {/* Hotel details */}
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1.5 flex-1">
-                    <p className="font-semibold text-foreground">{hotel.name}</p>
-                    <p className="text-sm text-muted-foreground">{hotel.description}</p>
+                {/* Hotel image + details */}
+                <div className="flex gap-3">
+                  {hotel.imageUrl && (
+                    <div className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-muted">
+                      <img
+                        src={hotel.imageUrl}
+                        alt={hotel.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Hotel details */}
+                  <div className="flex items-start justify-between gap-4 flex-1">
+                    <div className="space-y-1.5 flex-1">
+                      <p className="font-semibold text-foreground">{hotel.name}</p>
+                      <p className="text-sm text-muted-foreground">{hotel.description}</p>
                     
                     {/* Amenities */}
                     <div className="flex flex-wrap gap-1.5 mt-2">
@@ -190,6 +204,7 @@ export function HotelTierSelector({
                       </p>
                     )}
                   </div>
+                </div>
                 </div>
 
                 {/* Booking link */}
