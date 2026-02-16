@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hotel, Check, Star, Wifi, Car, Coffee, Dumbbell, Sparkles, TrendingDown } from 'lucide-react';
+import { Hotel, Check, Star, Wifi, Car, Coffee, Dumbbell, Sparkles, TrendingDown, ArrowUpRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -192,12 +192,28 @@ export function HotelTierSelector({
                   </div>
                 </div>
 
+                {/* Booking link */}
+                {hotel.bookingUrl && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <a
+                      href={hotel.bookingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      Book this hotel
+                    </a>
+                  </div>
+                )}
+
                 {/* Trade-off hint for selected */}
                 {isSelected && savings && !isBudget && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    className="mt-3 pt-3 border-t border-border"
+                    className="mt-2 pt-2 border-t border-border"
                   >
                     <p className="text-xs text-muted-foreground">
                       💡 Choosing budget hotel saves ${savings} → could add {Math.floor(savings / 50)} more activities
