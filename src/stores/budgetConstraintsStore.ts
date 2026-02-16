@@ -392,11 +392,10 @@ export const useBudgetConstraintsStore = create<
     }),
     {
       name: 'roameo-budget-constraints',
+      version: 2, // Bump to invalidate stale persisted data
       partialize: (state) => ({
-        destinationBudget: state.destinationBudget,
         isLocked: state.isLocked,
-        hasRealFlightData: state.hasRealFlightData,
-        hasRealHotelData: state.hasRealHotelData,
+        // Do NOT persist destinationBudget — always fetch fresh API data
       }),
     }
   )
