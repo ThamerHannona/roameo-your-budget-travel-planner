@@ -216,6 +216,7 @@ export default function RealTimeBudgetAllocation() {
           description: `${tierLabel.replace('★', '-star')} accommodation`,
           amenities: bestHotel.amenities || ['WiFi', 'Parking'],
           bookingUrl: bestHotel.bookingUrl,
+          imageUrl: bestHotel.imageUrl,
         });
       }
     });
