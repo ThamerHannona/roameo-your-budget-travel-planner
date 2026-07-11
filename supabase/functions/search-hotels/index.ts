@@ -1,5 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { z } from "https://esm.sh/zod@3.23.8";
+
+// Input validation schema
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+const isValidFutureDate = (date: string) => {
+  if (!DATE_REGEX.test(date)) return false;
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const maxDate = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000);
+  return d >= today && d <= maxDate;
+};
+
+const HotelSearchSchema = z.object({
+  q: z.string().trim().min(2, 'q must be at least 2 characters').max(100, 'q must be at most 100 characters')
+    .regex(/^[\p{L}0-9\s,.\-'()]+$/u, 'q contains invalid characters'),
+  checkIn: z.string().refine(isValidFutureDate, 'checkIn must be YYYY-MM-DD within the next 2 years'),
+  checkOut: z.string().refine(isValidFutureDate, 'checkOut must be YYYY-MM-DD within the next 2 years'),
+  adults: z.number().int().min(1).max(10).default(2),
+  rooms: z.number().int().min(1).max(10).default(1),
+  currency: z.string().regex(/^[A-Z]{3}$/, 'currency must be a 3-letter ISO code').default('USD'),
+  gl: z.string().regex(/^[a-z]{2}$/, 'gl must be a 2-letter country code').default('us'),
+  hl: z.string().regex(/^[a-z]{2}$/, 'hl must be a 2-letter language code').default('en'),
+}).refine(
+  (d) => new Date(d.checkOut) > new Date(d.checkIn),
+  { message: 'checkOut must be after checkIn' }
+);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -110,50 +139,48 @@ serve(async (req) => {
     }
 
     // Parse params from GET query string or POST body
-    let q: string | null = null;
-    let checkIn: string | null = null;
-    let checkOut: string | null = null;
-    let adults = 2;
-    let rooms = 1;
-    let currency = 'USD';
-    let gl = 'us';
-    let hl = 'en';
+    let raw: Record<string, unknown>;
 
     if (req.method === 'GET') {
       const url = new URL(req.url);
-      q = url.searchParams.get('q');
-      checkIn = url.searchParams.get('checkIn');
-      checkOut = url.searchParams.get('checkOut');
-      adults = parseInt(url.searchParams.get('adults') || '2') || 2;
-      rooms = parseInt(url.searchParams.get('rooms') || '1') || 1;
-      currency = url.searchParams.get('currency') || 'USD';
-      gl = url.searchParams.get('gl') || 'us';
-      hl = url.searchParams.get('hl') || 'en';
+      raw = {
+        q: url.searchParams.get('q') ?? undefined,
+        checkIn: url.searchParams.get('checkIn') ?? undefined,
+        checkOut: url.searchParams.get('checkOut') ?? undefined,
+        adults: url.searchParams.get('adults') ? parseInt(url.searchParams.get('adults')!, 10) : undefined,
+        rooms: url.searchParams.get('rooms') ? parseInt(url.searchParams.get('rooms')!, 10) : undefined,
+        currency: url.searchParams.get('currency') ?? undefined,
+        gl: url.searchParams.get('gl') ?? undefined,
+        hl: url.searchParams.get('hl') ?? undefined,
+      };
     } else if (req.method === 'POST') {
-      const body = await req.json();
-      // Support both old format (destination) and new format (q)
-      q = body.q || body.destination || null;
-      checkIn = body.checkIn || body.check_in_date || null;
-      checkOut = body.checkOut || body.check_out_date || null;
-      adults = body.adults || 2;
-      rooms = body.rooms || 1;
-      currency = body.currency || 'USD';
-      gl = body.gl || 'us';
-      hl = body.hl || 'en';
+      try {
+        const body = await req.json();
+        raw = {
+          q: body.q ?? body.destination,
+          checkIn: body.checkIn ?? body.check_in_date,
+          checkOut: body.checkOut ?? body.check_out_date,
+          adults: body.adults,
+          rooms: body.rooms,
+          currency: body.currency,
+          gl: body.gl,
+          hl: body.hl,
+        };
+      } catch {
+        return jsonRes({ ok: false, error: 'Invalid JSON body' }, 400);
+      }
     } else {
       return jsonRes({ ok: false, error: 'Method not allowed' }, 405);
     }
 
-    // Validate required params
-    if (!q || !checkIn || !checkOut) {
-      return jsonRes({ ok: false, error: 'Missing required parameters: q, checkIn, checkOut' }, 400);
-    }
+    // Strip undefined so schema defaults apply
+    Object.keys(raw).forEach((k) => raw[k] === undefined && delete raw[k]);
 
-    // Validate date format
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(checkIn) || !dateRegex.test(checkOut)) {
-      return jsonRes({ ok: false, error: 'Dates must be in YYYY-MM-DD format' }, 400);
+    const parsed = HotelSearchSchema.safeParse(raw);
+    if (!parsed.success) {
+      return jsonRes({ ok: false, error: 'Invalid request parameters', details: parsed.error.flatten() }, 400);
     }
+    const { q, checkIn, checkOut, adults, rooms, currency, gl, hl } = parsed.data;
 
     const nights = Math.max(1, Math.ceil(
       (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
