@@ -1,5 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { z } from "https://esm.sh/zod@3.23.8";
+
+// Input validation schema
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+const isValidFutureDate = (date: string) => {
+  if (!DATE_REGEX.test(date)) return false;
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const maxDate = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000);
+  return d >= today && d <= maxDate;
+};
+
+const HotelSearchSchema = z.object({
+  q: z.string().trim().min(2, 'q must be at least 2 characters').max(100, 'q must be at most 100 characters')
+    .regex(/^[\p{L}0-9\s,.\-'()]+$/u, 'q contains invalid characters'),
+  checkIn: z.string().refine(isValidFutureDate, 'checkIn must be YYYY-MM-DD within the next 2 years'),
+  checkOut: z.string().refine(isValidFutureDate, 'checkOut must be YYYY-MM-DD within the next 2 years'),
+  adults: z.number().int().min(1).max(10).default(2),
+  rooms: z.number().int().min(1).max(10).default(1),
+  currency: z.string().regex(/^[A-Z]{3}$/, 'currency must be a 3-letter ISO code').default('USD'),
+  gl: z.string().regex(/^[a-z]{2}$/, 'gl must be a 2-letter country code').default('us'),
+  hl: z.string().regex(/^[a-z]{2}$/, 'hl must be a 2-letter language code').default('en'),
+}).refine(
+  (d) => new Date(d.checkOut) > new Date(d.checkIn),
+  { message: 'checkOut must be after checkIn' }
+);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
