@@ -48,11 +48,13 @@ export default function RealTimeBudgetAllocation() {
     updateCategory,
     getSelectedFlight,
     getSelectedHotel,
+    getTotalAllocated,
     applyPreset,
     resetToDefaults,
     lockBudget,
     setFlightOptions,
     setHotelOptions,
+    setDestinationBudget,
   } = useBudgetConstraintsStore();
 
   // Real flight search
