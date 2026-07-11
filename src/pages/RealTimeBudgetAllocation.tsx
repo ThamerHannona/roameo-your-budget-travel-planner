@@ -310,6 +310,14 @@ export default function RealTimeBudgetAllocation() {
   const selectedHotel = getSelectedHotel();
   const { constraints } = destinationBudget;
 
+  // Live sum of what the user actually has selected vs their budget
+  const selectedTotal = getTotalAllocated();
+  const budgetDiff = destinationBudget.totalBudget - selectedTotal;
+  const isOverBudget = budgetDiff < 0;
+  const hasLiveFlights = constraints.flights.options.length > 0 && !flightsMockData && !flightsLoading;
+  const hasLiveHotels = constraints.hotels.tiers.length > 0 && !hotelsMockData && !hotelsLoading;
+  const missingDeparture = !tripSearch.departureCity;
+
   if (!destination) {
     return (
       <div className="min-h-screen flex items-center justify-center">
