@@ -9,7 +9,8 @@ interface ItineraryActions {
     startDate: Date,
     endDate: Date,
     totalBudget: number,
-    travelers: number
+    travelers: number,
+    pois?: GenericItineraryPOIs
   ) => void;
   swapActivity: (dayId: string, activityId: string, newActivity: Activity) => void;
   reorderActivities: (dayId: string, sourceIndex: number, destinationIndex: number) => void;
