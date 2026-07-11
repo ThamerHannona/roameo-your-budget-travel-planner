@@ -1010,57 +1010,63 @@ export const createGenericItinerary = (
         isFree: false,
       });
       
-      activities.push({
-        id: `d${i}-a2`,
-        time: '10:30',
-        endTime: '13:00',
-        type: 'attraction',
-        name: `Morning Sightseeing in ${destination.name}`,
-        description: `Explore popular attractions and landmarks in ${destination.name}.`,
-        cost: Math.round(dailyBudget * 0.15),
-        duration: '2h 30min',
-        location: {
-          name: 'Local Attractions',
-          address: `${destination.name}, ${destination.country}`,
-          coordinates: destination.coordinates,
-        },
-        isFree: false,
-      });
-      
-      activities.push({
-        id: `d${i}-a3`,
-        time: '13:30',
-        endTime: '15:00',
-        type: 'restaurant',
-        name: 'Lunch',
-        description: `Enjoy lunch at a recommended local spot in ${destination.name}.`,
-        cost: Math.round(dailyBudget * 0.12),
-        duration: '1h 30min',
-        location: {
-          name: 'Restaurant',
-          address: `${destination.name}, ${destination.country}`,
-          coordinates: destination.coordinates,
-        },
-        isFree: false,
-      });
-      
-      activities.push({
-        id: `d${i}-a4`,
-        time: '15:30',
-        endTime: '18:00',
-        type: 'museum',
-        name: 'Afternoon Activity',
-        description: `Visit a museum, gallery, or unique attraction in ${destination.name}.`,
-        cost: Math.round(dailyBudget * 0.1),
-        duration: '2h 30min',
-        location: {
-          name: 'Museum or Gallery',
-          address: `${destination.name}, ${destination.country}`,
-          coordinates: destination.coordinates,
-        },
-        isFree: false,
-      });
-      
+      {
+        const a = pickAttraction();
+        activities.push({
+          id: `d${i}-a2`,
+          time: '10:30',
+          endTime: '13:00',
+          type: 'attraction',
+          name: a?.name ? `Morning at ${a.name}` : `Morning Sightseeing in ${destination.name}`,
+          description: a?.name
+            ? `Explore ${a.name}${a.rating ? ` (${a.rating}★, ${a.reviews ?? 0} reviews)` : ''}.`
+            : `Explore popular attractions and landmarks in ${destination.name}.`,
+          cost: a?.estimatedCost ?? Math.round(dailyBudget * 0.15),
+          duration: '2h 30min',
+          location: locFromPOI(a, 'Local Attractions'),
+          bookingUrl: a?.mapsUrl,
+          isFree: !a?.estimatedCost,
+        });
+      }
+
+      {
+        const r = pickRestaurant();
+        activities.push({
+          id: `d${i}-a3`,
+          time: '13:30',
+          endTime: '15:00',
+          type: 'restaurant',
+          name: r?.name ? `Lunch at ${r.name}` : 'Lunch',
+          description: r?.name
+            ? `Enjoy lunch at ${r.name}${r.rating ? ` (${r.rating}★)` : ''}.`
+            : `Enjoy lunch at a recommended local spot in ${destination.name}.`,
+          cost: Math.round(dailyBudget * 0.12),
+          duration: '1h 30min',
+          location: locFromPOI(r, 'Restaurant'),
+          bookingUrl: r?.mapsUrl,
+          isFree: false,
+        });
+      }
+
+      {
+        const m = pickMuseum();
+        activities.push({
+          id: `d${i}-a4`,
+          time: '15:30',
+          endTime: '18:00',
+          type: 'museum',
+          name: m?.name ? `Visit ${m.name}` : 'Afternoon Activity',
+          description: m?.name
+            ? `${m.name}${m.rating ? ` — ${m.rating}★` : ''}.`
+            : `Visit a museum, gallery, or unique attraction in ${destination.name}.`,
+          cost: m?.estimatedCost ?? Math.round(dailyBudget * 0.1),
+          duration: '2h 30min',
+          location: locFromPOI(m, 'Museum or Gallery'),
+          bookingUrl: m?.mapsUrl,
+          isFree: !m?.estimatedCost,
+        });
+      }
+
       activities.push({
         id: `d${i}-a5`,
         time: '18:30',
@@ -1077,23 +1083,25 @@ export const createGenericItinerary = (
         },
         isFree: true,
       });
-      
-      activities.push({
-        id: `d${i}-a6`,
-        time: '20:00',
-        endTime: '22:00',
-        type: 'restaurant',
-        name: 'Dinner',
-        description: `Savor dinner at a popular restaurant in ${destination.name}.`,
-        cost: Math.round(dailyBudget * 0.2),
-        duration: '2h',
-        location: {
-          name: 'Restaurant',
-          address: `${destination.name}, ${destination.country}`,
-          coordinates: destination.coordinates,
-        },
-        isFree: false,
-      });
+
+      {
+        const r = pickRestaurant();
+        activities.push({
+          id: `d${i}-a6`,
+          time: '20:00',
+          endTime: '22:00',
+          type: 'restaurant',
+          name: r?.name ? `Dinner at ${r.name}` : 'Dinner',
+          description: r?.name
+            ? `Savor dinner at ${r.name}${r.rating ? ` (${r.rating}★)` : ''}.`
+            : `Savor dinner at a popular restaurant in ${destination.name}.`,
+          cost: Math.round(dailyBudget * 0.2),
+          duration: '2h',
+          location: locFromPOI(r, 'Restaurant'),
+          bookingUrl: r?.mapsUrl,
+          isFree: false,
+        });
+      }
     }
     
     days.push({
