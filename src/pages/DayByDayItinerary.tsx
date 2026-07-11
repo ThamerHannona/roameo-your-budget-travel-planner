@@ -13,6 +13,7 @@ import { useTripSearchStore } from '@/stores/tripSearchStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
+import { fetchDestinationPOIs } from '@/services/activitiesApi';
 import confetti from 'canvas-confetti';
 
 export default function DayByDayItinerary() {
