@@ -788,6 +788,7 @@ export interface GenericPOI {
   mapsUrl?: string;
   estimatedCost?: number;
   rating?: number | null;
+  reviews?: number | null;
   thumbnail?: string | null;
 }
 
