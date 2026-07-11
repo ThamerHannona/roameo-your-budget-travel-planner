@@ -781,14 +781,47 @@ export const getTripTotals = (days: DayPlan[]): { totalSpent: number; byCategory
 };
 
 // Create a generic itinerary for any destination
+export interface GenericPOI {
+  name: string;
+  address: string;
+  coordinates?: { lat: number; lng: number } | null;
+  mapsUrl?: string;
+  estimatedCost?: number;
+  rating?: number | null;
+  thumbnail?: string | null;
+}
+
+export interface GenericItineraryPOIs {
+  attractions?: GenericPOI[];
+  restaurants?: GenericPOI[];
+  museums?: GenericPOI[];
+}
+
 export const createGenericItinerary = (
   destination: { name: string; country: string; coordinates: { lat: number; lng: number } },
   startDate: Date,
   numDays: number,
-  dailyBudget: number
+  dailyBudget: number,
+  pois?: GenericItineraryPOIs
 ): DayPlan[] => {
   const days: DayPlan[] = [];
-  
+  const attractions = pois?.attractions || [];
+  const restaurants = pois?.restaurants || [];
+  const museums = pois?.museums || [];
+  let attractionIdx = 0;
+  let restaurantIdx = 0;
+  let museumIdx = 0;
+  const pickAttraction = () => attractions[attractionIdx++ % Math.max(1, attractions.length)];
+  const pickRestaurant = () => restaurants[restaurantIdx++ % Math.max(1, restaurants.length)];
+  const pickMuseum = () => museums[museumIdx++ % Math.max(1, museums.length)] || pickAttraction();
+
+  const locFromPOI = (poi: GenericPOI | undefined, fallbackName: string) => ({
+    name: poi?.name || fallbackName,
+    address: poi?.address || `${destination.name}, ${destination.country}`,
+    coordinates: poi?.coordinates || destination.coordinates,
+    googleMapsUrl: poi?.mapsUrl,
+  });
+
   for (let i = 1; i <= numDays; i++) {
     const dayDate = new Date(startDate);
     dayDate.setDate(dayDate.getDate() + i - 1);
