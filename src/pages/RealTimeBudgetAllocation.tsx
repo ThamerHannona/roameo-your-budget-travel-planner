@@ -121,6 +121,31 @@ export default function RealTimeBudgetAllocation() {
     }
   }, [destinationId, tripSearch, navigate]);
 
+  // Seed the constraints store from the user's REAL trip search (budget/travelers/days)
+  // so allocation is anchored to what the user actually chose, not the mock defaults.
+  useEffect(() => {
+    if (!destination) return;
+    const totalBudget = tripSearch.budget;
+    const travelers = tripSearch.travelers || 1;
+    const days = tripSearch.days || 7;
+    // Only seed when the store still reflects a different budget/dest to avoid stomping on live API updates
+    if (
+      destinationBudget.totalBudget !== totalBudget ||
+      destinationBudget.destination !== `${destination.name}, ${destination.country}` ||
+      destinationBudget.days !== days ||
+      destinationBudget.travelers !== travelers
+    ) {
+      const seeded = generateBudgetConstraints(
+        `${destination.name}, ${destination.country}`,
+        totalBudget,
+        travelers,
+        days
+      );
+      setDestinationBudget(seeded);
+    }
+  }, [destination, tripSearch.budget, tripSearch.travelers, tripSearch.days, destinationBudget.totalBudget, destinationBudget.destination, destinationBudget.days, destinationBudget.travelers, setDestinationBudget]);
+
+
   // Fetch real flight data when destination is loaded
   useEffect(() => {
     if (!destination || !tripSearch.departureCity || !tripSearch.dates.start || !tripSearch.dates.end) {
