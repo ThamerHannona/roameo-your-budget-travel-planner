@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { DayPlan, Activity, ItineraryState } from '@/types/itinerary';
-import { createLisbonItinerary, createGenericItinerary, getTripTotals } from '@/data/lisbonItinerary';
+import { createLisbonItinerary, createGenericItinerary, getTripTotals, type GenericItineraryPOIs } from '@/data/lisbonItinerary';
 
 interface ItineraryActions {
   initializeItinerary: (
