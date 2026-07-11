@@ -864,56 +864,62 @@ export const createGenericItinerary = (
         isFree: true,
       });
       
-      activities.push({
-        id: `d${i}-a3`,
-        time: '14:00',
-        endTime: '15:30',
-        type: 'restaurant',
-        name: 'Welcome Lunch',
-        description: `Enjoy your first meal in ${destination.name} at a local restaurant.`,
-        cost: Math.round(dailyBudget * 0.15),
-        duration: '1h 30min',
-        location: {
-          name: 'Local Restaurant',
-          address: `City Center, ${destination.name}`,
-          coordinates: destination.coordinates,
-        },
-        isFree: false,
-      });
-      
-      activities.push({
-        id: `d${i}-a4`,
-        time: '16:00',
-        endTime: '18:30',
-        type: 'attraction',
-        name: `Explore ${destination.name} City Center`,
-        description: `Walk around the main areas and get oriented with ${destination.name}.`,
-        cost: 0,
-        duration: '2h 30min',
-        location: {
-          name: 'City Center',
-          address: `${destination.name}, ${destination.country}`,
-          coordinates: destination.coordinates,
-        },
-        isFree: true,
-      });
-      
-      activities.push({
-        id: `d${i}-a5`,
-        time: '19:30',
-        endTime: '21:30',
-        type: 'restaurant',
-        name: 'Dinner',
-        description: `Experience local cuisine for dinner in ${destination.name}.`,
-        cost: Math.round(dailyBudget * 0.2),
-        duration: '2h',
-        location: {
-          name: 'Restaurant',
-          address: `${destination.name}, ${destination.country}`,
-          coordinates: destination.coordinates,
-        },
-        isFree: false,
-      });
+      {
+        const r = pickRestaurant();
+        activities.push({
+          id: `d${i}-a3`,
+          time: '14:00',
+          endTime: '15:30',
+          type: 'restaurant',
+          name: r?.name ? `Welcome Lunch: ${r.name}` : 'Welcome Lunch',
+          description: r?.name
+            ? `Enjoy your first meal in ${destination.name} at ${r.name}.`
+            : `Enjoy your first meal in ${destination.name} at a local restaurant.`,
+          cost: Math.round(dailyBudget * 0.15),
+          duration: '1h 30min',
+          location: locFromPOI(r, 'Local Restaurant'),
+          bookingUrl: r?.mapsUrl,
+          isFree: false,
+        });
+      }
+
+      {
+        const a = pickAttraction();
+        activities.push({
+          id: `d${i}-a4`,
+          time: '16:00',
+          endTime: '18:30',
+          type: 'attraction',
+          name: a?.name ? `Explore ${a.name}` : `Explore ${destination.name} City Center`,
+          description: a?.name
+            ? `Visit ${a.name} — one of the top attractions in ${destination.name}.`
+            : `Walk around the main areas and get oriented with ${destination.name}.`,
+          cost: a?.estimatedCost ?? 0,
+          duration: '2h 30min',
+          location: locFromPOI(a, 'City Center'),
+          bookingUrl: a?.mapsUrl,
+          isFree: !a?.estimatedCost,
+        });
+      }
+
+      {
+        const r = pickRestaurant();
+        activities.push({
+          id: `d${i}-a5`,
+          time: '19:30',
+          endTime: '21:30',
+          type: 'restaurant',
+          name: r?.name ? `Dinner at ${r.name}` : 'Dinner',
+          description: r?.name
+            ? `Experience local cuisine at ${r.name}${r.rating ? ` (${r.rating}★)` : ''}.`
+            : `Experience local cuisine for dinner in ${destination.name}.`,
+          cost: Math.round(dailyBudget * 0.2),
+          duration: '2h',
+          location: locFromPOI(r, 'Restaurant'),
+          bookingUrl: r?.mapsUrl,
+          isFree: false,
+        });
+      }
     }
     // Last day: Departure
     else if (i === numDays) {
