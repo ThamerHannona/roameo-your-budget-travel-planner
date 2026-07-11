@@ -139,50 +139,48 @@ serve(async (req) => {
     }
 
     // Parse params from GET query string or POST body
-    let q: string | null = null;
-    let checkIn: string | null = null;
-    let checkOut: string | null = null;
-    let adults = 2;
-    let rooms = 1;
-    let currency = 'USD';
-    let gl = 'us';
-    let hl = 'en';
+    let raw: Record<string, unknown>;
 
     if (req.method === 'GET') {
       const url = new URL(req.url);
-      q = url.searchParams.get('q');
-      checkIn = url.searchParams.get('checkIn');
-      checkOut = url.searchParams.get('checkOut');
-      adults = parseInt(url.searchParams.get('adults') || '2') || 2;
-      rooms = parseInt(url.searchParams.get('rooms') || '1') || 1;
-      currency = url.searchParams.get('currency') || 'USD';
-      gl = url.searchParams.get('gl') || 'us';
-      hl = url.searchParams.get('hl') || 'en';
+      raw = {
+        q: url.searchParams.get('q') ?? undefined,
+        checkIn: url.searchParams.get('checkIn') ?? undefined,
+        checkOut: url.searchParams.get('checkOut') ?? undefined,
+        adults: url.searchParams.get('adults') ? parseInt(url.searchParams.get('adults')!, 10) : undefined,
+        rooms: url.searchParams.get('rooms') ? parseInt(url.searchParams.get('rooms')!, 10) : undefined,
+        currency: url.searchParams.get('currency') ?? undefined,
+        gl: url.searchParams.get('gl') ?? undefined,
+        hl: url.searchParams.get('hl') ?? undefined,
+      };
     } else if (req.method === 'POST') {
-      const body = await req.json();
-      // Support both old format (destination) and new format (q)
-      q = body.q || body.destination || null;
-      checkIn = body.checkIn || body.check_in_date || null;
-      checkOut = body.checkOut || body.check_out_date || null;
-      adults = body.adults || 2;
-      rooms = body.rooms || 1;
-      currency = body.currency || 'USD';
-      gl = body.gl || 'us';
-      hl = body.hl || 'en';
+      try {
+        const body = await req.json();
+        raw = {
+          q: body.q ?? body.destination,
+          checkIn: body.checkIn ?? body.check_in_date,
+          checkOut: body.checkOut ?? body.check_out_date,
+          adults: body.adults,
+          rooms: body.rooms,
+          currency: body.currency,
+          gl: body.gl,
+          hl: body.hl,
+        };
+      } catch {
+        return jsonRes({ ok: false, error: 'Invalid JSON body' }, 400);
+      }
     } else {
       return jsonRes({ ok: false, error: 'Method not allowed' }, 405);
     }
 
-    // Validate required params
-    if (!q || !checkIn || !checkOut) {
-      return jsonRes({ ok: false, error: 'Missing required parameters: q, checkIn, checkOut' }, 400);
-    }
+    // Strip undefined so schema defaults apply
+    Object.keys(raw).forEach((k) => raw[k] === undefined && delete raw[k]);
 
-    // Validate date format
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(checkIn) || !dateRegex.test(checkOut)) {
-      return jsonRes({ ok: false, error: 'Dates must be in YYYY-MM-DD format' }, 400);
+    const parsed = HotelSearchSchema.safeParse(raw);
+    if (!parsed.success) {
+      return jsonRes({ ok: false, error: 'Invalid request parameters', details: parsed.error.flatten() }, 400);
     }
+    const { q, checkIn, checkOut, adults, rooms, currency, gl, hl } = parsed.data;
 
     const nights = Math.max(1, Math.ceil(
       (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
