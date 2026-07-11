@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Lock, RotateCcw, ChevronDown, Sparkles, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, Lock, RotateCcw, ChevronDown, Sparkles, Wifi, WifiOff, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -24,7 +24,7 @@ import { useHotelSearch } from '@/hooks/useHotelSearch';
 import { getAirportCode } from '@/utils/airports';
 import { matchDestinations } from '@/lib/destinationMatcher';
 import { destinations } from '@/data/destinations';
-import { budgetPresets } from '@/data/mockBudgetData';
+import { budgetPresets, generateBudgetConstraints } from '@/data/mockBudgetData';
 import type { CategoryKey, FlightOption, HotelTier } from '@/types/budgetConstraints';
 import type { DestinationMatch } from '@/types/destination';
 import { useToast } from '@/hooks/use-toast';
