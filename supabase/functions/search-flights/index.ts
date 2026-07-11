@@ -240,37 +240,50 @@ serve(async (req) => {
     }
 
     // Support both GET (query params) and POST (JSON body)
-    let origin: string, destination: string, departureDate: string;
-    let returnDate: string | undefined;
-    let adults = 1;
-    let cabin = 'economy';
     let isGetRequest = false;
+    let raw: Record<string, unknown>;
 
     if (req.method === 'GET') {
       isGetRequest = true;
       const url = new URL(req.url);
-      origin = url.searchParams.get('origin') || '';
-      destination = url.searchParams.get('destination') || '';
-      departureDate = url.searchParams.get('departDate') || '';
-      returnDate = url.searchParams.get('returnDate') || undefined;
-      adults = parseInt(url.searchParams.get('adults') || '1', 10);
-      cabin = url.searchParams.get('cabin') || 'economy';
+      raw = {
+        origin: url.searchParams.get('origin') ?? undefined,
+        destination: url.searchParams.get('destination') ?? undefined,
+        departureDate: url.searchParams.get('departDate') ?? undefined,
+        returnDate: url.searchParams.get('returnDate') ?? undefined,
+        adults: url.searchParams.get('adults') ? parseInt(url.searchParams.get('adults')!, 10) : undefined,
+        cabin: url.searchParams.get('cabin') ?? undefined,
+      };
     } else {
-      const body = await req.json();
-      origin = body.origin || '';
-      destination = body.destination || '';
-      departureDate = body.departureDate || body.departDate || '';
-      returnDate = body.returnDate || undefined;
-      adults = body.adults || 1;
-      cabin = body.cabin || 'economy';
+      try {
+        const body = await req.json();
+        raw = {
+          origin: body.origin,
+          destination: body.destination,
+          departureDate: body.departureDate ?? body.departDate,
+          returnDate: body.returnDate,
+          adults: body.adults,
+          cabin: body.cabin,
+        };
+      } catch {
+        return new Response(
+          JSON.stringify({ ok: false, error: 'Invalid JSON body' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    if (!origin || !destination || !departureDate) {
+    // Strip undefined so schema defaults apply
+    Object.keys(raw).forEach((k) => raw[k] === undefined && delete raw[k]);
+
+    const parsed = FlightSearchSchema.safeParse(raw);
+    if (!parsed.success) {
       return new Response(
-        JSON.stringify({ ok: false, error: 'Missing required parameters: origin, destination, departDate' }),
+        JSON.stringify({ ok: false, error: 'Invalid request parameters', details: parsed.error.flatten() }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const { origin, destination, departureDate, returnDate, adults, cabin } = parsed.data;
 
     console.log(`Searching flights: ${origin} → ${destination} on ${departureDate}, cabin=${cabin}`);
 
