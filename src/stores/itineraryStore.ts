@@ -44,16 +44,16 @@ export const useItineraryStore = create<ItineraryState & ItineraryActions>()(
     (set, get) => ({
       ...initialState,
 
-      initializeItinerary: (destination, startDate, endDate, totalBudget, travelers) => {
+      initializeItinerary: (destination, startDate, endDate, totalBudget, travelers, pois) => {
         const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
         const dailyBudget = Math.round(totalBudget / days);
         
         // Use Lisbon-specific itinerary for Lisbon, generic for other destinations
         let itineraryDays: DayPlan[];
-        if (destination.name.toLowerCase() === 'lisbon') {
+        if (destination.name.toLowerCase() === 'lisbon' && !pois) {
           itineraryDays = createLisbonItinerary(startDate, dailyBudget);
         } else {
-          itineraryDays = createGenericItinerary(destination, startDate, days, dailyBudget);
+          itineraryDays = createGenericItinerary(destination, startDate, days, dailyBudget, pois);
         }
         
         const { totalSpent } = getTripTotals(itineraryDays);
