@@ -13,6 +13,7 @@ import { useTripSearchStore } from '@/stores/tripSearchStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
+import { fetchDestinationPOIs } from '@/services/activitiesApi';
 import confetti from 'canvas-confetti';
 
 export default function DayByDayItinerary() {
@@ -48,13 +49,11 @@ export default function DayByDayItinerary() {
     const urlMatchesStored = destinationId === storedDestinationId || 
                              destination.name.toLowerCase() === destinationId?.toLowerCase();
     
-    // If we have a selectedDestination from the store and either:
-    // 1. No days exist yet, or
-    // 2. The URL doesn't match what's stored (user selected a different destination)
     if (selectedDestination && (days.length === 0 || !urlMatchesStored)) {
       const startDate = dates.start || new Date();
       const endDate = dates.end || new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
-      
+
+      // Seed with static generic itinerary immediately so the page renders
       initializeItinerary(
         {
           name: selectedDestination.name,
@@ -67,6 +66,30 @@ export default function DayByDayItinerary() {
         budget,
         travelers
       );
+
+      // Then fetch real POIs and re-initialize with real places
+      let cancelled = false;
+      fetchDestinationPOIs(selectedDestination.name)
+        .then((pois) => {
+          if (cancelled) return;
+          if (pois.attractions.length || pois.restaurants.length || pois.museums.length) {
+            initializeItinerary(
+              {
+                name: selectedDestination.name,
+                country: selectedDestination.country,
+                imageUrl: selectedDestination.imageUrl,
+                coordinates: selectedDestination.coordinates,
+              },
+              startDate,
+              endDate,
+              budget,
+              travelers,
+              pois
+            );
+          }
+        })
+        .catch((err) => console.warn('Failed to fetch real POIs:', err));
+      return () => { cancelled = true; };
     }
   }, [selectedDestination, days.length, budget, travelers, dates, initializeItinerary, destinationId, destination.name]);
 

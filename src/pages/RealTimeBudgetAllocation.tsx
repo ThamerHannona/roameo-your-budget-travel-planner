@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Lock, RotateCcw, ChevronDown, Sparkles, Wifi, WifiOff } from 'lucide-react';
+import { ArrowLeft, Lock, RotateCcw, ChevronDown, Sparkles, Wifi, WifiOff, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -24,7 +24,7 @@ import { useHotelSearch } from '@/hooks/useHotelSearch';
 import { getAirportCode } from '@/utils/airports';
 import { matchDestinations } from '@/lib/destinationMatcher';
 import { destinations } from '@/data/destinations';
-import { budgetPresets } from '@/data/mockBudgetData';
+import { budgetPresets, generateBudgetConstraints } from '@/data/mockBudgetData';
 import type { CategoryKey, FlightOption, HotelTier } from '@/types/budgetConstraints';
 import type { DestinationMatch } from '@/types/destination';
 import { useToast } from '@/hooks/use-toast';
@@ -48,11 +48,13 @@ export default function RealTimeBudgetAllocation() {
     updateCategory,
     getSelectedFlight,
     getSelectedHotel,
+    getTotalAllocated,
     applyPreset,
     resetToDefaults,
     lockBudget,
     setFlightOptions,
     setHotelOptions,
+    setDestinationBudget,
   } = useBudgetConstraintsStore();
 
   // Real flight search
@@ -118,6 +120,31 @@ export default function RealTimeBudgetAllocation() {
       });
     }
   }, [destinationId, tripSearch, navigate]);
+
+  // Seed the constraints store from the user's REAL trip search (budget/travelers/days)
+  // so allocation is anchored to what the user actually chose, not the mock defaults.
+  useEffect(() => {
+    if (!destination) return;
+    const totalBudget = tripSearch.budget;
+    const travelers = tripSearch.travelers || 1;
+    const days = tripSearch.days || 7;
+    // Only seed when the store still reflects a different budget/dest to avoid stomping on live API updates
+    if (
+      destinationBudget.totalBudget !== totalBudget ||
+      destinationBudget.destination !== `${destination.name}, ${destination.country}` ||
+      destinationBudget.days !== days ||
+      destinationBudget.travelers !== travelers
+    ) {
+      const seeded = generateBudgetConstraints(
+        `${destination.name}, ${destination.country}`,
+        totalBudget,
+        travelers,
+        days
+      );
+      setDestinationBudget(seeded);
+    }
+  }, [destination, tripSearch.budget, tripSearch.travelers, tripSearch.days, destinationBudget.totalBudget, destinationBudget.destination, destinationBudget.days, destinationBudget.travelers, setDestinationBudget]);
+
 
   // Fetch real flight data when destination is loaded
   useEffect(() => {
@@ -283,6 +310,14 @@ export default function RealTimeBudgetAllocation() {
   const selectedHotel = getSelectedHotel();
   const { constraints } = destinationBudget;
 
+  // Live sum of what the user actually has selected vs their budget
+  const selectedTotal = getTotalAllocated();
+  const budgetDiff = destinationBudget.totalBudget - selectedTotal;
+  const isOverBudget = budgetDiff < 0;
+  const hasLiveFlights = constraints.flights.options.length > 0 && !flightsMockData && !flightsLoading;
+  const hasLiveHotels = constraints.hotels.tiers.length > 0 && !hotelsMockData && !hotelsLoading;
+  const missingDeparture = !tripSearch.departureCity;
+
   if (!destination) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -328,6 +363,66 @@ export default function RealTimeBudgetAllocation() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
+        {/* Departure city guard */}
+        {missingDeparture && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4">
+            <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-foreground">No departure city set</p>
+              <p className="text-sm text-muted-foreground">
+                We can't pull live flight prices without knowing where you're flying from. Numbers below
+                are estimates until you set a departure city.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+              Set departure
+            </Button>
+          </div>
+        )}
+
+        {/* Live selection vs budget banner */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`mb-6 rounded-xl border p-4 ${
+            isOverBudget
+              ? 'border-destructive/40 bg-destructive/10'
+              : 'border-success/30 bg-success/10'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {isOverBudget ? (
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-success" />
+              )}
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {isOverBudget ? 'Selections exceed your budget' : 'Your selections fit your budget'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Live flight: {hasLiveFlights ? '✓' : '…'} · Live hotels: {hasLiveHotels ? '✓' : '…'}
+                  {selectedFlight && ` · ${selectedFlight.airline} $${selectedFlight.price.toLocaleString()}`}
+                  {selectedHotel && ` · ${selectedHotel.tier} $${selectedHotel.totalPrice.toLocaleString()}`}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Selected / Budget</p>
+              <p className={`font-display text-lg font-bold ${isOverBudget ? 'text-destructive' : 'text-foreground'}`}>
+                ${selectedTotal.toLocaleString()}{' '}
+                <span className="text-muted-foreground text-sm font-normal">
+                  / ${destinationBudget.totalBudget.toLocaleString()}
+                </span>
+              </p>
+              <p className={`text-xs font-medium ${isOverBudget ? 'text-destructive' : 'text-success'}`}>
+                {isOverBudget ? `$${Math.abs(budgetDiff).toLocaleString()} over` : `$${budgetDiff.toLocaleString()} remaining`}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
         <div className="grid lg:grid-cols-[1fr,380px] gap-6">
           {/* Left Column - Sliders */}
           <div className="space-y-6">
