@@ -363,6 +363,66 @@ export default function RealTimeBudgetAllocation() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
+        {/* Departure city guard */}
+        {missingDeparture && (
+          <div className="mb-4 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4">
+            <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-foreground">No departure city set</p>
+              <p className="text-sm text-muted-foreground">
+                We can't pull live flight prices without knowing where you're flying from. Numbers below
+                are estimates until you set a departure city.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+              Set departure
+            </Button>
+          </div>
+        )}
+
+        {/* Live selection vs budget banner */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`mb-6 rounded-xl border p-4 ${
+            isOverBudget
+              ? 'border-destructive/40 bg-destructive/10'
+              : 'border-success/30 bg-success/10'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {isOverBudget ? (
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5 text-success" />
+              )}
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {isOverBudget ? 'Selections exceed your budget' : 'Your selections fit your budget'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Live flight: {hasLiveFlights ? '✓' : '…'} · Live hotels: {hasLiveHotels ? '✓' : '…'}
+                  {selectedFlight && ` · ${selectedFlight.airline} $${selectedFlight.price.toLocaleString()}`}
+                  {selectedHotel && ` · ${selectedHotel.tier} $${selectedHotel.totalPrice.toLocaleString()}`}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Selected / Budget</p>
+              <p className={`font-display text-lg font-bold ${isOverBudget ? 'text-destructive' : 'text-foreground'}`}>
+                ${selectedTotal.toLocaleString()}{' '}
+                <span className="text-muted-foreground text-sm font-normal">
+                  / ${destinationBudget.totalBudget.toLocaleString()}
+                </span>
+              </p>
+              <p className={`text-xs font-medium ${isOverBudget ? 'text-destructive' : 'text-success'}`}>
+                {isOverBudget ? `$${Math.abs(budgetDiff).toLocaleString()} over` : `$${budgetDiff.toLocaleString()} remaining`}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
         <div className="grid lg:grid-cols-[1fr,380px] gap-6">
           {/* Left Column - Sliders */}
           <div className="space-y-6">
