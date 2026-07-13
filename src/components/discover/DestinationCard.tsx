@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { DestinationMatch } from '@/types/destination';
 import { cn } from '@/lib/utils';
+import { useTripSearchStore } from '@/stores/tripSearchStore';
+import { getDefaultTripStart } from '@/utils/tripDates';
 
 interface DestinationCardProps {
   destination: DestinationMatch;
