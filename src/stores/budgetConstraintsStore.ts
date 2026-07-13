@@ -387,11 +387,17 @@ export const useBudgetConstraintsStore = create<
       },
 
       resetToDefaults: () => {
-        set({
-          destinationBudget: marrakechBudgetData,
-          recentChanges: [],
-        });
+        // Reseed against the current destination/budget/travelers/days.
+        const { destinationBudget } = get();
+        const reseeded = generateBudgetConstraints(
+          destinationBudget.destination,
+          destinationBudget.totalBudget,
+          destinationBudget.travelers,
+          destinationBudget.days,
+        );
+        set({ destinationBudget: reseeded, recentChanges: [] });
       },
+
 
       lockBudget: () => set({ isLocked: true }),
       unlockBudget: () => set({ isLocked: false }),
