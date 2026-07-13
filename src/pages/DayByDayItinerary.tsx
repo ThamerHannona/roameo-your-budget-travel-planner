@@ -305,7 +305,7 @@ export default function DayByDayItinerary() {
           destination: destination.name,
           country: destination.country,
           days: days.length,
-          totalCost: totalSpent,
+          totalCost: selectedTripTotal,
           travelers,
         }}
       />
