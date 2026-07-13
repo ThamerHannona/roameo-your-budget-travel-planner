@@ -138,13 +138,20 @@ function redistributeBudget(
   return newConstraints;
 }
 
+// Neutral placeholder — destination-specific values are seeded by
+// RealTimeBudgetAllocation via generateBudgetConstraints() as soon as the
+// user's real trip params are known. Never bake Marrakech numbers into
+// unrelated destinations.
+const emptyDestinationBudget: DestinationBudget = generateBudgetConstraints('', 0, 1, 1, 1);
+
 const initialState: BudgetConstraintsState = {
-  destinationBudget: marrakechBudgetData,
+  destinationBudget: emptyDestinationBudget,
   recentChanges: [],
   isLocked: false,
   hasRealFlightData: false,
   hasRealHotelData: false,
 };
+
 
 export const useBudgetConstraintsStore = create<
   BudgetConstraintsState & BudgetConstraintsActions
