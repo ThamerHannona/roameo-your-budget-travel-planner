@@ -76,10 +76,11 @@ export default function FinalBooking() {
       
       if (urlDestination !== storeDestination && itineraryDestination.name.toLowerCase() !== storeDestination) {
         // Re-initialize itinerary with correct destination
-        const { resolveTripDates } = await import('@/utils/tripDates');
         const { start: startDate, end: endDate } = resolveTripDates(
           tripSearch.dates.start, tripSearch.dates.end, tripSearch.days || 7,
         );
+
+
 
 
         
