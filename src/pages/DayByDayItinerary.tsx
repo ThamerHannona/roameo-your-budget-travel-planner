@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { TripHeader, DayCard, BudgetPanel, ItineraryMap } from '@/components/itinerary';
@@ -10,11 +10,15 @@ import { PaywallModal } from '@/components/paywall';
 import { useItineraryStore } from '@/stores/itineraryStore';
 import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
+import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { fetchDestinationPOIs } from '@/services/activitiesApi';
+import { resolveTripDates } from '@/utils/tripDates';
 import confetti from 'canvas-confetti';
+
+type POIStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
 export default function DayByDayItinerary() {
   const navigate = useNavigate();
