@@ -205,7 +205,7 @@ export default function RealTimeBudgetAllocation() {
     const sortedOptions = [...mappedOptions].sort((a, b) => a.price - b.price);
     
     setFlightOptions(sortedOptions);
-  }, [destination, flightResults, setFlightOptions]);
+  }, [destination, flightResults, tsTravelers, setFlightOptions]);
 
   // Map real hotel results to store format
   useEffect(() => {
