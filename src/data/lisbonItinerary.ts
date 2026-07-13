@@ -1134,7 +1134,7 @@ export const createGenericItinerary = (
           description: r?.name
             ? `Enjoy lunch at ${r.name}${r.rating ? ` (${r.rating}★)` : ''}.`
             : `Enjoy lunch at a recommended local spot in ${destination.name}.`,
-          cost: Math.round(dailyBudget * 0.12),
+          cost: r?.estimatedCost ? r.estimatedCost * 2 : Math.round(dailyBudget * 0.12),
           duration: '1h 30min',
           location: locFromPOI(r, 'Restaurant'),
           bookingUrl: r?.mapsUrl,
