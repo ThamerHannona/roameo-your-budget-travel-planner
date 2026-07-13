@@ -200,7 +200,7 @@ export const destinations: Destination[] = [
     name: 'Dubrovnik',
     country: 'Croatia',
     region: 'Europe',
-    imageUrl: 'https://images.unsplash.com/photo-1555990538-1e7d53d16b95?w=800',
+    imageUrl: 'https://images.unsplash.com/photo-1591187740645-5470bea044d6?w=800',
     costs: { budget: 55, mid: 130, luxury: 300, flight: 580 },
     weather: generateWeather('mediterranean', [5, 6, 9, 10]),
     highlights: ['Old Town walls', 'Game of Thrones locations', 'Adriatic Sea', 'Island hopping'],
