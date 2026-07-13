@@ -185,7 +185,7 @@ export default function RealTimeBudgetAllocation() {
     const result = flightResults.get(destinationCode);
     if (!result?.options?.length) return;
 
-    const travelers = tripSearch.travelers || 1;
+    const travelers = tsTravelers || 1;
     
     // Map SerpAPI flight options to store format
     // SerpAPI already returns total price for all travelers when `adults` param is passed
