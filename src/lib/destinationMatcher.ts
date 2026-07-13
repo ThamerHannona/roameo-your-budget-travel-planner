@@ -283,11 +283,12 @@ export const matchDestinations = (criteria: MatchCriteriaWithFlights): Destinati
       
       // Generate insight
       const whyThisWorks = generateInsight(
-        destination, 
-        budgetRatio, 
-        weatherScore, 
+        destination,
+        budgetRatio,
+        weatherScore,
         crowdScore,
-        !!hasRealFlightData
+        !!hasRealFlightData,
+        getMonth(criteria.startDate),
       );
       
       return {
