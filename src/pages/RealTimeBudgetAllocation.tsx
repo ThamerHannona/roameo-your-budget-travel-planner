@@ -91,22 +91,22 @@ export default function RealTimeBudgetAllocation() {
     search: searchHotels,
   } = useHotelSearch();
 
-  // Load destination
+  // Load destination — depend on primitive tripSearch fields only so we don't
+  // re-run whenever the store object identity changes.
   useEffect(() => {
     if (!destinationId) {
       navigate('/discover');
       return;
     }
 
-    // First check if we have valid dates for matching
-    if (tripSearch.dates.start && tripSearch.dates.end) {
+    if (tsStart && tsEnd) {
       const matches = matchDestinations({
-        budget: tripSearch.budget,
-        startDate: tripSearch.dates.start,
-        endDate: tripSearch.dates.end,
-        travelers: tripSearch.travelers,
+        budget: tsBudget,
+        startDate: tsStart,
+        endDate: tsEnd,
+        travelers: tsTravelers,
         tripStyle: 'mid',
-        regions: tripSearch.regions,
+        regions: tsRegions,
       });
 
       const found = matches.find((d) => d.id === destinationId);
@@ -115,15 +115,14 @@ export default function RealTimeBudgetAllocation() {
         return;
       }
     }
-    
-    // Fallback to destinations data if no match or no dates
+
     const fallback = destinations.find((d) => d.id === destinationId);
     if (fallback) {
       setDestination({
         ...fallback,
         valueScore: 75,
-        estimatedTotalCost: tripSearch.budget * 0.85,
-        dailyCost: Math.round((tripSearch.budget * 0.85) / (tripSearch.days || 7)),
+        estimatedTotalCost: tsBudget * 0.85,
+        dailyCost: Math.round((tsBudget * 0.85) / (tsDays || 7)),
         flightCost: 500,
         accommodationCost: 600,
         activitiesCost: 400,
@@ -132,64 +131,49 @@ export default function RealTimeBudgetAllocation() {
         crowdScore: 70,
         confidenceScore: 75,
         affordability: 'good-value',
-        budgetDelta: tripSearch.budget * 0.15,
+        budgetDelta: tsBudget * 0.15,
         whyThisWorks: 'Great value destination',
         flagEmoji: '🌍',
       });
     }
-  }, [destinationId, tripSearch, navigate]);
+  }, [destinationId, tsBudget, tsTravelers, tsDays, tsStart, tsEnd, tsRegions, navigate]);
 
-  // Seed the constraints store from the user's REAL trip search (budget/travelers/days)
-  // so allocation is anchored to what the user actually chose, not the mock defaults.
+  // Seed the constraints store from the user's REAL trip search. Gate with a
+  // ref keyed by (destinationId + budget + travelers + days) so this runs at
+  // most ONCE per meaningful change — never re-triggered by our own write to
+  // destinationBudget (which was the source of the freeze loop).
+  const seedKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (!destination) return;
-    const totalBudget = tripSearch.budget;
-    const travelers = tripSearch.travelers || 1;
-    const days = tripSearch.days || 7;
-    // Only seed when the store still reflects a different budget/dest to avoid stomping on live API updates
-    if (
-      destinationBudget.totalBudget !== totalBudget ||
-      destinationBudget.destination !== `${destination.name}, ${destination.country}` ||
-      destinationBudget.days !== days ||
-      destinationBudget.travelers !== travelers
-    ) {
-      const seeded = generateBudgetConstraints(
-        `${destination.name}, ${destination.country}`,
-        totalBudget,
-        travelers,
-        days
-      );
-      setDestinationBudget(seeded);
-    }
-  }, [destination, tripSearch.budget, tripSearch.travelers, tripSearch.days, destinationBudget.totalBudget, destinationBudget.destination, destinationBudget.days, destinationBudget.travelers, setDestinationBudget]);
+    const totalBudget = tsBudget;
+    const travelers = tsTravelers || 1;
+    const days = tsDays || 7;
+    const key = `${destination.id}|${totalBudget}|${travelers}|${days}`;
+    if (seedKeyRef.current === key) return;
+    seedKeyRef.current = key;
+
+    const seeded = generateBudgetConstraints(
+      `${destination.name}, ${destination.country}`,
+      totalBudget,
+      travelers,
+      days
+    );
+    setDestinationBudget(seeded);
+  }, [destination, tsBudget, tsTravelers, tsDays, setDestinationBudget]);
 
 
   // Fetch real flight data when destination is loaded
   useEffect(() => {
-    if (!destination || !tripSearch.departureCity || !tripSearch.dates.start || !tripSearch.dates.end) {
+    if (!destination || !tsDepartureCity || !tsStart || !tsEnd) {
       return;
     }
 
     const destinationCode = getAirportCode(destination.name);
     if (!destinationCode) return;
 
-    // Fetch flights for this specific destination
-    searchFlights(
-      tripSearch.departureCity,
-      tripSearch.dates.start,
-      tripSearch.dates.end,
-      tripSearch.travelers,
-      [destinationCode]
-    );
-
-    // Fetch hotels for this destination - use city name
-    searchHotels(
-      destination.name,
-      tripSearch.dates.start,
-      tripSearch.dates.end,
-      tripSearch.travelers
-    );
-  }, [destination, tripSearch.departureCity, tripSearch.dates.start, tripSearch.dates.end, tripSearch.travelers, searchFlights, searchHotels]);
+    searchFlights(tsDepartureCity, tsStart, tsEnd, tsTravelers, [destinationCode]);
+    searchHotels(destination.name, tsStart, tsEnd, tsTravelers);
+  }, [destination, tsDepartureCity, tsStart, tsEnd, tsTravelers, searchFlights, searchHotels]);
 
   // Map real flight results to store format
   useEffect(() => {
