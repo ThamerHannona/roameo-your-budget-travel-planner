@@ -253,7 +253,7 @@ export default function RealTimeBudgetAllocation() {
     if (mappedTiers.length > 0) {
       setHotelOptions(mappedTiers);
     }
-  }, [destination, hotelResults, tripSearch.days, setHotelOptions]);
+  }, [destination, hotelResults, tsDays, setHotelOptions]);
 
   const handleCategoryChange = useCallback(
     (category: CategoryKey) => (value: number) => {
