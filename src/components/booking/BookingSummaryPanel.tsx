@@ -257,9 +257,10 @@ export function BookingSummaryPanel({
           </div>
           
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{bookedCount}/{bookingItems.length} items booked</span>
+            <span>{bookedCount}/{totalBookable} booked</span>
             <span>For {travelers} traveler{travelers > 1 ? 's' : ''}</span>
           </div>
+
 
           <Button 
             onClick={onProceedToBooking} 
