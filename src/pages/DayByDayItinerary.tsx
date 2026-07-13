@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { TripHeader, DayCard, BudgetPanel, ItineraryMap } from '@/components/itinerary';
@@ -10,11 +10,15 @@ import { PaywallModal } from '@/components/paywall';
 import { useItineraryStore } from '@/stores/itineraryStore';
 import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
+import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useToast } from '@/hooks/use-toast';
 import { fetchDestinationPOIs } from '@/services/activitiesApi';
+import { resolveTripDates } from '@/utils/tripDates';
 import confetti from 'canvas-confetti';
+
+type POIStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
 export default function DayByDayItinerary() {
   const navigate = useNavigate();
@@ -25,11 +29,14 @@ export default function DayByDayItinerary() {
   const [selectedActivityId, setSelectedActivityId] = useState<string>();
   const [showBookingPanel, setShowBookingPanel] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [poiStatus, setPoiStatus] = useState<POIStatus>('idle');
+  const poiFetchedForRef = useRef<string | null>(null);
 
   const { isPaid, checkPaymentStatus, markAsPaid } = usePaymentStore();
 
   const { destination: selectedDestination, budgetBreakdown } = useSelectedDestinationStore();
   const { budget, travelers, dates } = useTripSearchStore();
+  const { getSelectedFlight, getSelectedHotel, getTotalAllocated } = useBudgetConstraintsStore();
   const {
     days,
     totalBudget,
@@ -42,18 +49,30 @@ export default function DayByDayItinerary() {
     getTotalSpent,
   } = useItineraryStore();
 
-  // Clear and re-initialize if destination ID doesn't match stored destination
-  useEffect(() => {
-    // Check if the URL destinationId matches the stored destination
-    const storedDestinationId = destination.name.toLowerCase().replace(/\s+/g, '-');
-    const urlMatchesStored = destinationId === storedDestinationId || 
-                             destination.name.toLowerCase() === destinationId?.toLowerCase();
-    
-    if (selectedDestination && (days.length === 0 || !urlMatchesStored)) {
-      const startDate = dates.start || new Date();
-      const endDate = dates.end || new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
+  // Build a per-day weather object from the destination's monthly climate at
+  // the actual trip start month — so the itinerary matches the discover card.
+  const buildWeatherForTrip = (start: Date) => {
+    if (!selectedDestination?.weather) return undefined;
+    const month = start.getMonth() + 1;
+    const w = selectedDestination.weather[month];
+    if (!w) return undefined;
+    const iconMap: Record<string, string> = {
+      sunny: '☀️', 'partly-cloudy': '⛅', rainy: '🌧️', cold: '❄️', hot: '🔥',
+    };
+    return { temp: Math.round(w.temp), condition: w.condition, icon: iconMap[w.condition] || '☀️' };
+  };
 
-      // Seed with static generic itinerary immediately so the page renders
+  // Seed itinerary immediately when destination changes / URL doesn't match store
+  useEffect(() => {
+    if (!selectedDestination) return;
+
+    const storedDestinationId = destination.name.toLowerCase().replace(/\s+/g, '-');
+    const urlMatchesStored =
+      destinationId === storedDestinationId ||
+      destination.name.toLowerCase() === destinationId?.toLowerCase();
+
+    if (days.length === 0 || !urlMatchesStored) {
+      const { start: startDate, end: endDate } = resolveTripDates(dates.start, dates.end, 5);
       initializeItinerary(
         {
           name: selectedDestination.name,
@@ -64,34 +83,54 @@ export default function DayByDayItinerary() {
         startDate,
         endDate,
         budget,
-        travelers
+        travelers,
+        undefined,
+        buildWeatherForTrip(startDate),
       );
-
-      // Then fetch real POIs and re-initialize with real places
-      let cancelled = false;
-      fetchDestinationPOIs(selectedDestination.name)
-        .then((pois) => {
-          if (cancelled) return;
-          if (pois.attractions.length || pois.restaurants.length || pois.museums.length) {
-            initializeItinerary(
-              {
-                name: selectedDestination.name,
-                country: selectedDestination.country,
-                imageUrl: selectedDestination.imageUrl,
-                coordinates: selectedDestination.coordinates,
-              },
-              startDate,
-              endDate,
-              budget,
-              travelers,
-              pois
-            );
-          }
-        })
-        .catch((err) => console.warn('Failed to fetch real POIs:', err));
-      return () => { cancelled = true; };
+      // Force a POI re-fetch for the new destination
+      poiFetchedForRef.current = null;
     }
-  }, [selectedDestination, days.length, budget, travelers, dates, initializeItinerary, destinationId, destination.name]);
+  }, [selectedDestination, destinationId, destination.name, days.length, budget, travelers, dates, initializeItinerary]);
+
+  // Fetch real POIs exactly once per destination, independent of re-renders
+  useEffect(() => {
+    if (!selectedDestination) return;
+    const key = selectedDestination.name.toLowerCase();
+    if (poiFetchedForRef.current === key) return;
+    poiFetchedForRef.current = key;
+
+    const { start: startDate, end: endDate } = resolveTripDates(dates.start, dates.end, 5);
+    setPoiStatus('loading');
+
+    fetchDestinationPOIs(selectedDestination.name)
+      .then((pois) => {
+        const hasAny =
+          pois.attractions.length || pois.restaurants.length || pois.museums.length;
+        if (!hasAny) {
+          setPoiStatus('failed');
+          return;
+        }
+        initializeItinerary(
+          {
+            name: selectedDestination.name,
+            country: selectedDestination.country,
+            imageUrl: selectedDestination.imageUrl,
+            coordinates: selectedDestination.coordinates,
+          },
+          startDate,
+          endDate,
+          budget,
+          travelers,
+          pois,
+          buildWeatherForTrip(startDate),
+        );
+        setPoiStatus('ready');
+      })
+      .catch((err) => {
+        console.warn('Failed to fetch real POIs:', err);
+        setPoiStatus('failed');
+      });
+  }, [selectedDestination, dates, budget, travelers, initializeItinerary]);
 
   // Wait for store hydration before redirecting
   const [isHydrated, setIsHydrated] = useState(false);
@@ -137,7 +176,12 @@ export default function DayByDayItinerary() {
   }
 
   const selectedDay = days.find(d => d.dayNumber === selectedDayNumber) || days[0];
-  const totalSpent = getTotalSpent();
+  const activitiesSpent = getTotalSpent();
+  const selectedFlight = getSelectedFlight();
+  const selectedHotel = getSelectedHotel();
+  const budgetAllocated = getTotalAllocated();
+  // Single "selected trip total" used by header + booking summary
+  const selectedTripTotal = budgetAllocated > 0 ? budgetAllocated : activitiesSpent;
 
   return (
     <div className="min-h-screen bg-background">
@@ -162,10 +206,24 @@ export default function DayByDayItinerary() {
               destination={destination}
               tripDates={tripDates}
               totalBudget={totalBudget}
-              totalSpent={totalSpent}
+              totalSpent={selectedTripTotal}
               travelers={travelers}
               weather={selectedDay.weather}
             />
+
+            {/* POI status banner */}
+            {poiStatus === 'loading' && (
+              <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Finding real places in {destination.name}…
+              </div>
+            )}
+            {poiStatus === 'failed' && (
+              <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-4 py-2 text-sm text-warning-foreground">
+                <AlertCircle className="h-4 w-4 text-warning" />
+                Couldn't load live places for {destination.name} — showing a generic itinerary. Try refreshing.
+              </div>
+            )}
 
             {/* Day Cards */}
             <div className="space-y-4">
@@ -199,6 +257,11 @@ export default function DayByDayItinerary() {
                 destination={destination}
                 tripDates={tripDates}
                 travelers={travelers}
+                selectedFlightPrice={selectedFlight?.price ?? 0}
+                selectedFlightName={selectedFlight ? `${selectedFlight.airline} ${selectedFlight.flightNumber}` : undefined}
+                selectedHotelPrice={selectedHotel?.totalPrice ?? 0}
+                selectedHotelName={selectedHotel?.name}
+                selectedTripTotal={selectedTripTotal}
                 onProceedToBooking={() => {
                   // Check if already paid
                   const hasPaid = checkPaymentStatus(destinationId || '');
@@ -209,6 +272,7 @@ export default function DayByDayItinerary() {
                   }
                 }}
               />
+
 
               {/* Budget Panel */}
               <BudgetPanel
@@ -257,7 +321,7 @@ export default function DayByDayItinerary() {
           destination: destination.name,
           country: destination.country,
           days: days.length,
-          totalCost: totalSpent,
+          totalCost: selectedTripTotal,
           travelers,
         }}
       />

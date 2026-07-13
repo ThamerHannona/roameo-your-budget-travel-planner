@@ -32,6 +32,7 @@ import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
 import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
 import { cn } from '@/lib/utils';
+import { resolveTripDates } from '@/utils/tripDates';
 
 interface BookingItem {
   id: string;
@@ -76,8 +77,13 @@ export default function FinalBooking() {
       
       if (urlDestination !== storeDestination && itineraryDestination.name.toLowerCase() !== storeDestination) {
         // Re-initialize itinerary with correct destination
-        const startDate = tripSearch.dates.start || new Date();
-        const endDate = tripSearch.dates.end || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const { start: startDate, end: endDate } = resolveTripDates(
+          tripSearch.dates.start, tripSearch.dates.end, tripSearch.days || 7,
+        );
+
+
+
+
         
         initializeItinerary(
           {

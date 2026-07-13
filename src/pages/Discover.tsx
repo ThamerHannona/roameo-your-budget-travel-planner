@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Compass, Scale, Menu, Loader2, RefreshCcw, Plane } from 'lucide-react';
 import { addDays, format } from 'date-fns';
+import { resolveTripDates } from '@/utils/tripDates';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -90,8 +91,10 @@ export default function Discover() {
   
   // Match destinations based on user criteria + real flight data from Zustand store
   const matches = useMemo(() => {
-    const startDate = tripSearch.dates.start || new Date();
-    const endDate = tripSearch.dates.end || new Date(Date.now() + tripSearch.days * 24 * 60 * 60 * 1000);
+    const { start: startDate, end: endDate } = resolveTripDates(
+      tripSearch.dates.start, tripSearch.dates.end, tripSearch.days,
+    );
+
     
     return matchDestinations({
       budget: tripSearch.budget,
@@ -465,8 +468,8 @@ export default function Discover() {
             {/* Ghost Trips Section - show below map or list */}
             <GhostTripsSection
               budget={tripSearch.budget}
-              startDate={tripSearch.dates.start || new Date()}
-              endDate={tripSearch.dates.end || addDays(new Date(), tripSearch.days - 1)}
+              startDate={resolveTripDates(tripSearch.dates.start, tripSearch.dates.end, tripSearch.days).start}
+              endDate={resolveTripDates(tripSearch.dates.start, tripSearch.dates.end, tripSearch.days).end}
               travelers={tripSearch.travelers}
               tripStyle={
                 tripSearch.travelStyle === 'relaxation' ? 'luxury' : 
@@ -493,8 +496,8 @@ export default function Discover() {
           onOpenChange={setFlexibilityModalOpen}
           destinationName={selectedFlexDestination.name}
           currentDates={{
-            start: tripSearch.dates.start || new Date(),
-            end: tripSearch.dates.end || addDays(new Date(), tripSearch.days - 1),
+            start: resolveTripDates(tripSearch.dates.start, tripSearch.dates.end, tripSearch.days).start,
+            end: resolveTripDates(tripSearch.dates.start, tripSearch.dates.end, tripSearch.days).end,
           }}
           currentPrice={selectedFlexDestination.estimatedTotalCost}
           baseFlightPrice={selectedFlexDestination.flightCost}

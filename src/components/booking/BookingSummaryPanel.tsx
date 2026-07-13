@@ -35,6 +35,14 @@ interface BookingSummaryPanelProps {
   tripDates: { start: Date; end: Date };
   travelers: number;
   onProceedToBooking: () => void;
+  // Live selections from the budget allocation step. When provided, these
+  // take precedence over the (usually $0) placeholder flight/hotel entries
+  // in the generated itinerary so the summary matches the trip header.
+  selectedFlightPrice?: number;
+  selectedFlightName?: string;
+  selectedHotelPrice?: number;
+  selectedHotelName?: string;
+  selectedTripTotal?: number;
 }
 
 export function BookingSummaryPanel({
@@ -43,6 +51,11 @@ export function BookingSummaryPanel({
   tripDates,
   travelers,
   onProceedToBooking,
+  selectedFlightPrice,
+  selectedFlightName,
+  selectedHotelPrice,
+  selectedHotelName,
+  selectedTripTotal,
 }: BookingSummaryPanelProps) {
   // Helper to safely format date (handles both Date objects and serialized strings)
   const formatDate = (date: Date | string): string => {
@@ -93,19 +106,28 @@ export function BookingSummaryPanel({
     });
   });
 
-  // Calculate totals
-  const flightTotal = bookingItems
+  // Prefer live selections for flight/hotel totals; fall back to itinerary sums.
+  const itineraryFlightTotal = bookingItems
     .filter(i => i.type === 'flight')
     .reduce((sum, i) => sum + i.price, 0);
-  const hotelTotal = bookingItems
+  const itineraryHotelTotal = bookingItems
     .filter(i => i.type === 'hotel')
     .reduce((sum, i) => sum + i.price, 0);
   const activityTotal = bookingItems
     .filter(i => i.type === 'activity')
     .reduce((sum, i) => sum + i.price, 0);
-  const grandTotal = flightTotal + hotelTotal + activityTotal;
+
+  const flightTotal = selectedFlightPrice && selectedFlightPrice > 0 ? selectedFlightPrice : itineraryFlightTotal;
+  const hotelTotal = selectedHotelPrice && selectedHotelPrice > 0 ? selectedHotelPrice : itineraryHotelTotal;
+  const grandTotal = selectedTripTotal && selectedTripTotal > 0
+    ? selectedTripTotal
+    : flightTotal + hotelTotal + activityTotal;
 
   const bookedCount = bookingItems.filter(i => i.isBooked).length;
+  const totalBookable =
+    (flightTotal > 0 ? 1 : 0) +
+    (hotelTotal > 0 ? 1 : 0) +
+    bookingItems.filter(i => i.type === 'activity').length;
 
   const getIcon = (type: BookingItem['type']) => {
     switch (type) {
@@ -132,20 +154,25 @@ export function BookingSummaryPanel({
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="p-2 rounded-lg bg-muted/50">
             <Plane className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-sm font-medium">${flightTotal}</div>
-            <div className="text-xs text-muted-foreground">Flights</div>
+            <div className="text-sm font-medium">${flightTotal.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground truncate" title={selectedFlightName}>
+              {selectedFlightName || 'Flights'}
+            </div>
           </div>
           <div className="p-2 rounded-lg bg-muted/50">
             <Hotel className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-sm font-medium">${hotelTotal}</div>
-            <div className="text-xs text-muted-foreground">Hotels</div>
+            <div className="text-sm font-medium">${hotelTotal.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground truncate" title={selectedHotelName}>
+              {selectedHotelName || 'Hotels'}
+            </div>
           </div>
           <div className="p-2 rounded-lg bg-muted/50">
             <MapPin className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-sm font-medium">${activityTotal}</div>
+            <div className="text-sm font-medium">${activityTotal.toLocaleString()}</div>
             <div className="text-xs text-muted-foreground">Activities</div>
           </div>
         </div>
+
 
         <Separator />
 
@@ -230,9 +257,10 @@ export function BookingSummaryPanel({
           </div>
           
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{bookedCount}/{bookingItems.length} items booked</span>
+            <span>{bookedCount}/{totalBookable} booked</span>
             <span>For {travelers} traveler{travelers > 1 ? 's' : ''}</span>
           </div>
+
 
           <Button 
             onClick={onProceedToBooking} 

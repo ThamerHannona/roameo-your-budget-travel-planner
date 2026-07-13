@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { DestinationMatch } from '@/types/destination';
 import { cn } from '@/lib/utils';
+import { useTripSearchStore } from '@/stores/tripSearchStore';
+import { getDefaultTripStart } from '@/utils/tripDates';
 
 interface DestinationCardProps {
   destination: DestinationMatch;
@@ -98,7 +100,11 @@ export function DestinationCard({
   onFlexibleDates,
   compareCount = 0,
 }: DestinationCardProps) {
-  const currentMonth = new Date().getMonth() + 1;
+  // Use the actual trip start month so weather matches the itinerary page,
+  // not "today's" month.
+  const tripStart = useTripSearchStore((s) => s.dates.start);
+  const referenceDate = tripStart ? new Date(tripStart) : getDefaultTripStart();
+  const currentMonth = referenceDate.getMonth() + 1;
   const weather = destination.weather[currentMonth];
   
   return (
