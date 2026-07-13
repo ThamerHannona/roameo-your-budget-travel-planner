@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
+import { resolveTripDates } from '@/utils/tripDates';
 import { 
   ArrowLeft, 
   ArrowRight, 
