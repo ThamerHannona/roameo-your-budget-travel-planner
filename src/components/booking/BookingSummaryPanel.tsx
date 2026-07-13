@@ -154,20 +154,25 @@ export function BookingSummaryPanel({
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="p-2 rounded-lg bg-muted/50">
             <Plane className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-sm font-medium">${flightTotal}</div>
-            <div className="text-xs text-muted-foreground">Flights</div>
+            <div className="text-sm font-medium">${flightTotal.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground truncate" title={selectedFlightName}>
+              {selectedFlightName || 'Flights'}
+            </div>
           </div>
           <div className="p-2 rounded-lg bg-muted/50">
             <Hotel className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-sm font-medium">${hotelTotal}</div>
-            <div className="text-xs text-muted-foreground">Hotels</div>
+            <div className="text-sm font-medium">${hotelTotal.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground truncate" title={selectedHotelName}>
+              {selectedHotelName || 'Hotels'}
+            </div>
           </div>
           <div className="p-2 rounded-lg bg-muted/50">
             <MapPin className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-            <div className="text-sm font-medium">${activityTotal}</div>
+            <div className="text-sm font-medium">${activityTotal.toLocaleString()}</div>
             <div className="text-xs text-muted-foreground">Activities</div>
           </div>
         </div>
+
 
         <Separator />
 
