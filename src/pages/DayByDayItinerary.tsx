@@ -160,7 +160,12 @@ export default function DayByDayItinerary() {
   }
 
   const selectedDay = days.find(d => d.dayNumber === selectedDayNumber) || days[0];
-  const totalSpent = getTotalSpent();
+  const activitiesSpent = getTotalSpent();
+  const selectedFlight = getSelectedFlight();
+  const selectedHotel = getSelectedHotel();
+  const budgetAllocated = getTotalAllocated();
+  // Single "selected trip total" used by header + booking summary
+  const selectedTripTotal = budgetAllocated > 0 ? budgetAllocated : activitiesSpent;
 
   return (
     <div className="min-h-screen bg-background">
@@ -185,10 +190,24 @@ export default function DayByDayItinerary() {
               destination={destination}
               tripDates={tripDates}
               totalBudget={totalBudget}
-              totalSpent={totalSpent}
+              totalSpent={selectedTripTotal}
               travelers={travelers}
               weather={selectedDay.weather}
             />
+
+            {/* POI status banner */}
+            {poiStatus === 'loading' && (
+              <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Finding real places in {destination.name}…
+              </div>
+            )}
+            {poiStatus === 'failed' && (
+              <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/10 px-4 py-2 text-sm text-warning-foreground">
+                <AlertCircle className="h-4 w-4 text-warning" />
+                Couldn't load live places for {destination.name} — showing a generic itinerary. Try refreshing.
+              </div>
+            )}
 
             {/* Day Cards */}
             <div className="space-y-4">
@@ -222,6 +241,11 @@ export default function DayByDayItinerary() {
                 destination={destination}
                 tripDates={tripDates}
                 travelers={travelers}
+                selectedFlightPrice={selectedFlight?.price ?? 0}
+                selectedFlightName={selectedFlight ? `${selectedFlight.airline} · ${selectedFlight.tier}` : undefined}
+                selectedHotelPrice={selectedHotel?.totalPrice ?? 0}
+                selectedHotelName={selectedHotel?.name}
+                selectedTripTotal={selectedTripTotal}
                 onProceedToBooking={() => {
                   // Check if already paid
                   const hasPaid = checkPaymentStatus(destinationId || '');
@@ -232,6 +256,7 @@ export default function DayByDayItinerary() {
                   }
                 }}
               />
+
 
               {/* Budget Panel */}
               <BudgetPanel
