@@ -528,7 +528,7 @@ export default function RealTimeBudgetAllocation() {
                 selectedPrice={constraints.hotels.current}
                 onSelect={handleCategoryChange('hotels')}
                 totalBudget={destinationBudget.totalBudget}
-                nights={tripSearch.days || 7}
+                nights={realNights}
               />
             </motion.div>
 
