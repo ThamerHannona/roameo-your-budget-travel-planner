@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Compass, Scale, Menu, Loader2, RefreshCcw, Plane } from 'lucide-react';
 import { addDays, format } from 'date-fns';
+import { resolveTripDates } from '@/utils/tripDates';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
