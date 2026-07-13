@@ -49,6 +49,19 @@ export default function DayByDayItinerary() {
     getTotalSpent,
   } = useItineraryStore();
 
+  // Build a per-day weather object from the destination's monthly climate at
+  // the actual trip start month — so the itinerary matches the discover card.
+  const buildWeatherForTrip = (start: Date) => {
+    if (!selectedDestination?.weather) return undefined;
+    const month = start.getMonth() + 1;
+    const w = selectedDestination.weather[month];
+    if (!w) return undefined;
+    const iconMap: Record<string, string> = {
+      sunny: '☀️', 'partly-cloudy': '⛅', rainy: '🌧️', cold: '❄️', hot: '🔥',
+    };
+    return { temp: Math.round(w.temp), condition: w.condition, icon: iconMap[w.condition] || '☀️' };
+  };
+
   // Seed itinerary immediately when destination changes / URL doesn't match store
   useEffect(() => {
     if (!selectedDestination) return;
@@ -71,6 +84,8 @@ export default function DayByDayItinerary() {
         endDate,
         budget,
         travelers,
+        undefined,
+        buildWeatherForTrip(startDate),
       );
       // Force a POI re-fetch for the new destination
       poiFetchedForRef.current = null;
@@ -107,6 +122,7 @@ export default function DayByDayItinerary() {
           budget,
           travelers,
           pois,
+          buildWeatherForTrip(startDate),
         );
         setPoiStatus('ready');
       })
