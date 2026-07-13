@@ -810,12 +810,30 @@ export const createGenericItinerary = (
   const attractions = pois?.attractions || [];
   const restaurants = pois?.restaurants || [];
   const museums = pois?.museums || [];
-  let attractionIdx = 0;
-  let restaurantIdx = 0;
-  let museumIdx = 0;
-  const pickAttraction = () => attractions[attractionIdx++ % Math.max(1, attractions.length)];
-  const pickRestaurant = () => restaurants[restaurantIdx++ % Math.max(1, restaurants.length)];
-  const pickMuseum = () => museums[museumIdx++ % Math.max(1, museums.length)] || pickAttraction();
+
+  // Track usage counts so we prefer unused POIs first, only repeating when the
+  // pool is exhausted. Avoids the "La Bocca x3 / Trattoria Carmen x3" problem.
+  const usage = new Map<string, number>();
+  const usedKey = (name?: string) => (name || '').toLowerCase().trim();
+
+  const pickLeastUsed = <T extends GenericPOI>(pool: T[]): T | undefined => {
+    if (pool.length === 0) return undefined;
+    let best: T | undefined;
+    let bestCount = Infinity;
+    for (const p of pool) {
+      const c = usage.get(usedKey(p.name)) || 0;
+      if (c < bestCount) {
+        best = p;
+        bestCount = c;
+      }
+    }
+    if (best) usage.set(usedKey(best.name), (usage.get(usedKey(best.name)) || 0) + 1);
+    return best;
+  };
+
+  const pickAttraction = () => pickLeastUsed(attractions);
+  const pickRestaurant = () => pickLeastUsed(restaurants);
+  const pickMuseum = () => pickLeastUsed(museums) || pickAttraction();
 
   const locFromPOI = (poi: GenericPOI | undefined, fallbackName: string) => ({
     name: poi?.name || fallbackName,
@@ -824,21 +842,37 @@ export const createGenericItinerary = (
     googleMapsUrl: poi?.mapsUrl,
   });
 
+  // Suggested day trips per destination (kept minimal and hint-only).
+  const dayTripHints: Record<string, string[]> = {
+    dubrovnik: ['Lokrum Island (ferry)', 'Kotor, Montenegro', 'Mostar, Bosnia', 'Elaphiti Islands'],
+    lisbon: ['Sintra day trip', 'Cascais coast', 'Évora wine country'],
+    barcelona: ['Montserrat', 'Girona & Costa Brava', 'Sitges beach town'],
+    prague: ['Kutná Hora', 'Český Krumlov', 'Karlovy Vary spa town'],
+    rome: ['Pompeii & Amalfi', 'Tivoli villas', 'Orvieto hill town'],
+    paris: ['Versailles', 'Giverny (Monet gardens)', 'Champagne region'],
+    athens: ['Delphi', 'Cape Sounion', 'Hydra island'],
+    reykjavik: ['Golden Circle', 'South Coast waterfalls', 'Blue Lagoon'],
+    marrakech: ['Atlas Mountains', 'Essaouira coast', 'Ourika Valley'],
+  };
+  const destKey = destination.name.toLowerCase();
+  const trips = dayTripHints[destKey] || [];
+
   for (let i = 1; i <= numDays; i++) {
     const dayDate = new Date(startDate);
     dayDate.setDate(dayDate.getDate() + i - 1);
     
     const activities: Activity[] = [];
     
-    // Day 1: Arrival day
+    // Day 1: Travel + arrival day. Overnight flights from the Americas land
+    // in Europe in the morning, but travelers are jet-lagged — keep it light.
     if (i === 1) {
       activities.push({
         id: `d${i}-a1`,
-        time: '11:00',
-        endTime: '12:30',
+        time: '11:30',
+        endTime: '13:00',
         type: 'flight',
         name: `Arrive at ${destination.name} Airport`,
-        description: `Land and clear customs at ${destination.name} international airport.`,
+        description: `Land after your overnight flight and clear customs. Grab bags and head to the hotel.`,
         cost: 0,
         duration: '1h 30min',
         location: {
@@ -851,13 +885,30 @@ export const createGenericItinerary = (
       
       activities.push({
         id: `d${i}-a2`,
-        time: '13:00',
-        endTime: '13:30',
+        time: '13:30',
+        endTime: '14:30',
+        type: 'transport',
+        name: 'Transfer to hotel',
+        description: 'Taxi or airport shuttle into town.',
+        cost: 25,
+        duration: '1h',
+        location: {
+          name: 'City center',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+
+      activities.push({
+        id: `d${i}-a3`,
+        time: '14:30',
+        endTime: '15:30',
         type: 'hotel',
-        name: 'Check-in at Hotel',
-        description: 'Drop off luggage and freshen up at your accommodation.',
+        name: 'Hotel check-in',
+        description: 'Drop bags, freshen up, short nap to shake off jet lag.',
         cost: 0,
-        duration: '30min',
+        duration: '1h',
         location: {
           name: 'Hotel',
           address: `City Center, ${destination.name}`,
@@ -867,37 +918,18 @@ export const createGenericItinerary = (
       });
       
       {
-        const r = pickRestaurant();
-        activities.push({
-          id: `d${i}-a3`,
-          time: '14:00',
-          endTime: '15:30',
-          type: 'restaurant',
-          name: r?.name ? `Welcome Lunch: ${r.name}` : 'Welcome Lunch',
-          description: r?.name
-            ? `Enjoy your first meal in ${destination.name} at ${r.name}.`
-            : `Enjoy your first meal in ${destination.name} at a local restaurant.`,
-          cost: Math.round(dailyBudget * 0.15),
-          duration: '1h 30min',
-          location: locFromPOI(r, 'Local Restaurant'),
-          bookingUrl: r?.mapsUrl,
-          isFree: false,
-        });
-      }
-
-      {
         const a = pickAttraction();
         activities.push({
           id: `d${i}-a4`,
-          time: '16:00',
+          time: '16:30',
           endTime: '18:30',
           type: 'attraction',
-          name: a?.name ? `Explore ${a.name}` : `Explore ${destination.name} City Center`,
+          name: a?.name ? `Easy stroll: ${a.name}` : `Neighborhood stroll in ${destination.name}`,
           description: a?.name
-            ? `Visit ${a.name} — one of the top attractions in ${destination.name}.`
-            : `Walk around the main areas and get oriented with ${destination.name}.`,
+            ? `Get oriented with a light walk around ${a.name}. Save the deep sightseeing for tomorrow.`
+            : `Get oriented with a light walk around the historic center of ${destination.name}.`,
           cost: a?.estimatedCost ?? 0,
-          duration: '2h 30min',
+          duration: '2h',
           location: locFromPOI(a, 'City Center'),
           bookingUrl: a?.mapsUrl,
           isFree: !a?.estimatedCost,
@@ -909,20 +941,21 @@ export const createGenericItinerary = (
         activities.push({
           id: `d${i}-a5`,
           time: '19:30',
-          endTime: '21:30',
+          endTime: '21:00',
           type: 'restaurant',
-          name: r?.name ? `Dinner at ${r.name}` : 'Dinner',
+          name: r?.name ? `Early dinner at ${r.name}` : 'Early welcome dinner',
           description: r?.name
-            ? `Experience local cuisine at ${r.name}${r.rating ? ` (${r.rating}★)` : ''}.`
-            : `Experience local cuisine for dinner in ${destination.name}.`,
-          cost: Math.round(dailyBudget * 0.2),
-          duration: '2h',
+            ? `First taste of local cuisine at ${r.name}${r.rating ? ` (${r.rating}★)` : ''}. Turn in early to reset your clock.`
+            : `First taste of local cuisine. Turn in early to reset your clock.`,
+          cost: r?.estimatedCost ? r.estimatedCost * 2 : Math.round(dailyBudget * 0.18),
+          duration: '1h 30min',
           location: locFromPOI(r, 'Restaurant'),
           bookingUrl: r?.mapsUrl,
           isFree: false,
         });
       }
     }
+
     // Last day: Departure
     else if (i === numDays) {
       activities.push({
