@@ -803,7 +803,8 @@ export const createGenericItinerary = (
   startDate: Date,
   numDays: number,
   dailyBudget: number,
-  pois?: GenericItineraryPOIs
+  pois?: GenericItineraryPOIs,
+  weather?: { temp: number; condition: 'sunny' | 'partly-cloudy' | 'rainy' | 'cold' | 'hot'; icon: string },
 ): DayPlan[] => {
   const days: DayPlan[] = [];
   const attractions = pois?.attractions || [];
