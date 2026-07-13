@@ -242,7 +242,7 @@ export default function DayByDayItinerary() {
                 tripDates={tripDates}
                 travelers={travelers}
                 selectedFlightPrice={selectedFlight?.price ?? 0}
-                selectedFlightName={selectedFlight ? `${selectedFlight.airline} · ${selectedFlight.tier}` : undefined}
+                selectedFlightName={selectedFlight ? `${selectedFlight.airline} ${selectedFlight.flightNumber}` : undefined}
                 selectedHotelPrice={selectedHotel?.totalPrice ?? 0}
                 selectedHotelName={selectedHotel?.name}
                 selectedTripTotal={selectedTripTotal}
