@@ -215,7 +215,7 @@ export default function RealTimeBudgetAllocation() {
     const result = hotelResults.get(destination.name);
     if (!result?.options?.length) return;
 
-    const nights = tripSearch.days || 7;
+    const nights = tsDays || 7;
     
     // Group hotels by tier
     const tierMap: Record<string, typeof result.options> = {
