@@ -65,9 +65,6 @@ export default function RealTimeBudgetAllocation() {
   const destinationBudget = useBudgetConstraintsStore((s) => s.destinationBudget);
   const recentChanges = useBudgetConstraintsStore((s) => s.recentChanges);
   const updateCategory = useBudgetConstraintsStore((s) => s.updateCategory);
-  const getSelectedFlight = useBudgetConstraintsStore((s) => s.getSelectedFlight);
-  const getSelectedHotel = useBudgetConstraintsStore((s) => s.getSelectedHotel);
-  const getTotalAllocated = useBudgetConstraintsStore((s) => s.getTotalAllocated);
   const applyPreset = useBudgetConstraintsStore((s) => s.applyPreset);
   const resetToDefaults = useBudgetConstraintsStore((s) => s.resetToDefaults);
   const lockBudget = useBudgetConstraintsStore((s) => s.lockBudget);
