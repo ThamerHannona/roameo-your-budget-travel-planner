@@ -9,7 +9,7 @@ import type {
   HotelTier,
   DestinationBudget,
 } from '@/types/budgetConstraints';
-import { marrakechBudgetData, budgetPresets } from '@/data/mockBudgetData';
+import { budgetPresets, generateBudgetConstraints } from '@/data/mockBudgetData';
 
 interface BudgetConstraintsState {
   destinationBudget: DestinationBudget;
