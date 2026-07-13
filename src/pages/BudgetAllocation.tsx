@@ -58,8 +58,11 @@ export default function BudgetAllocation() {
   useEffect(() => {
     if (destinationId) {
       // Match destinations to get full DestinationMatch object
-      const startDate = tripSearch.dates.start || new Date();
-      const endDate = tripSearch.dates.end || new Date(Date.now() + tripSearch.days * 24 * 60 * 60 * 1000);
+      const { start: startDate, end: endDate } = resolveTripDates(
+        tripSearch.dates.start, tripSearch.dates.end, tripSearch.days,
+      );
+
+
       
       const matches = matchDestinations({
         budget: tripSearch.budget,
