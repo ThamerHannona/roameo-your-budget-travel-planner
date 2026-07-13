@@ -366,7 +366,7 @@ export const getGhostTrips = (criteria: MatchCriteriaWithFlights): DestinationMa
         destination,
         !!hasRealFlightData
       );
-      const whyThisWorks = generateInsight(destination, budgetRatio, weatherScore, crowdScore, !!hasRealFlightData);
+      const whyThisWorks = generateInsight(destination, budgetRatio, weatherScore, crowdScore, !!hasRealFlightData, getMonth(criteria.startDate));
       
       const valueScore = Math.round(
         (Math.max(0, 100 - (budgetRatio * 80)) * 0.4) + 
