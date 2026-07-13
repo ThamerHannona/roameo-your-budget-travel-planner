@@ -468,8 +468,8 @@ export default function Discover() {
             {/* Ghost Trips Section - show below map or list */}
             <GhostTripsSection
               budget={tripSearch.budget}
-              startDate={tripSearch.dates.start || new Date()}
-              endDate={tripSearch.dates.end || addDays(new Date(), tripSearch.days - 1)}
+              startDate={resolveTripDates(tripSearch.dates.start, tripSearch.dates.end, tripSearch.days).start}
+              endDate={resolveTripDates(tripSearch.dates.start, tripSearch.dates.end, tripSearch.days).end}
               travelers={tripSearch.travelers}
               tripStyle={
                 tripSearch.travelStyle === 'relaxation' ? 'luxury' : 
