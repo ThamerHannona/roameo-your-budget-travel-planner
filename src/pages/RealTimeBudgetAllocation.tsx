@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Lock, RotateCcw, ChevronDown, Sparkles, Wifi, WifiOff, AlertTriangle, CheckCircle2 } from 'lucide-react';
