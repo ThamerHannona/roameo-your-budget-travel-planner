@@ -20,8 +20,16 @@ const categoryConfig: Record<string, { icon: typeof DollarSign; color: string; l
   transportation: { icon: Bus, color: 'bg-slate-500', label: 'Transport' },
 };
 
+// Categories that scale with trip length (per-day/per-night spend).
+// Flights and the total hotel bill are already trip totals from the sliders,
+// so we don't multiply those by nights.
+const PER_NIGHT_CATEGORIES = new Set(['activities', 'food', 'transportation']);
+
 export function BudgetPanel({ days, totalBudget, budgetBreakdown }: BudgetPanelProps) {
-  // Calculate totals
+  // Real nights = number of itinerary days (used to scale per-day caps so they
+  // are comparable to itinerary-derived spend across the whole trip).
+  const realNights = Math.max(1, days.length);
+
   const categorySpent: Record<string, number> = {
     flights: 0,
     accommodation: 0,
@@ -60,9 +68,23 @@ export function BudgetPanel({ days, totalBudget, budgetBreakdown }: BudgetPanelP
     });
   });
 
-  const remaining = totalBudget - totalSpent;
-  const percentageSpent = Math.round((totalSpent / totalBudget) * 100);
-  const isOverBudget = totalSpent > totalBudget;
+  // Compute per-category allocated caps, scaled to trip length for
+  // per-day categories so caps and itinerary-derived spend are comparable.
+  const categoryAllocated: Record<string, number> = {};
+  Object.keys(categoryConfig).forEach((key) => {
+    const base = Math.round((totalBudget * (budgetBreakdown[key] || 20)) / 100);
+    categoryAllocated[key] = PER_NIGHT_CATEGORIES.has(key) ? base * realNights : base;
+  });
+
+  const totalAllocated = Object.values(categoryAllocated).reduce((s, v) => s + v, 0);
+  const remaining = totalAllocated - totalSpent;
+  const percentageSpent = totalAllocated > 0 ? Math.round((totalSpent / totalAllocated) * 100) : 0;
+  const isOverBudget = totalSpent > totalAllocated;
+
+  const categoriesOver = Object.keys(categoryConfig).filter(
+    (key) => categorySpent[key] > categoryAllocated[key],
+  );
+  const hasCategoryOver = categoriesOver.length > 0;
 
   return (
     <motion.div
@@ -78,7 +100,7 @@ export function BudgetPanel({ days, totalBudget, budgetBreakdown }: BudgetPanelP
           </div>
           <div>
             <h3 className="font-semibold text-foreground">Trip Budget</h3>
-            <p className="text-xs text-muted-foreground">Across all days</p>
+            <p className="text-xs text-muted-foreground">Across {realNights} day{realNights === 1 ? '' : 's'}</p>
           </div>
         </div>
         <Badge variant={isOverBudget ? 'destructive' : 'default'} className={cn(!isOverBudget && 'bg-success')}>
@@ -91,11 +113,11 @@ export function BudgetPanel({ days, totalBudget, budgetBreakdown }: BudgetPanelP
         <div className="flex justify-between text-sm mb-2">
           <span className="text-muted-foreground">Total Spent</span>
           <span className="font-medium">
-            ${totalSpent.toLocaleString()} / ${totalBudget.toLocaleString()}
+            ${totalSpent.toLocaleString()} / ${totalAllocated.toLocaleString()}
           </span>
         </div>
-        <Progress 
-          value={Math.min(percentageSpent, 100)} 
+        <Progress
+          value={Math.min(percentageSpent, 100)}
           className={cn('h-3', isOverBudget && '[&>div]:bg-destructive')}
         />
         <div className="flex justify-between text-xs mt-1">
@@ -111,9 +133,11 @@ export function BudgetPanel({ days, totalBudget, budgetBreakdown }: BudgetPanelP
         <h4 className="text-sm font-medium text-foreground">By Category</h4>
         {Object.entries(categoryConfig).map(([key, config]) => {
           const spent = categorySpent[key];
-          const allocated = Math.round((totalBudget * (budgetBreakdown[key] || 20)) / 100);
+          const allocated = categoryAllocated[key];
           const percentage = allocated > 0 ? Math.round((spent / allocated) * 100) : 0;
+          const ratio = allocated > 0 ? spent / allocated : 0;
           const isOver = spent > allocated;
+          const isAmber = !isOver && ratio >= 0.85;
           const Icon = config.icon;
 
           return (
@@ -125,13 +149,24 @@ export function BudgetPanel({ days, totalBudget, budgetBreakdown }: BudgetPanelP
                   </div>
                   <span className="text-muted-foreground">{config.label}</span>
                 </div>
-                <span className={cn('font-medium', isOver && 'text-destructive')}>
-                  ${spent} / ${allocated}
+                <span
+                  className={cn(
+                    'font-medium',
+                    isOver && 'text-destructive',
+                    isAmber && 'text-warning',
+                    !isOver && !isAmber && 'text-success',
+                  )}
+                >
+                  ${spent.toLocaleString()} / ${allocated.toLocaleString()}
                 </span>
               </div>
-              <Progress 
-                value={Math.min(percentage, 100)} 
-                className={cn('h-1.5', isOver && '[&>div]:bg-destructive')}
+              <Progress
+                value={Math.min(percentage, 100)}
+                className={cn(
+                  'h-1.5',
+                  isOver && '[&>div]:bg-destructive',
+                  isAmber && '[&>div]:bg-warning',
+                )}
               />
             </div>
           );
@@ -155,21 +190,43 @@ export function BudgetPanel({ days, totalBudget, budgetBreakdown }: BudgetPanelP
         </motion.div>
       )}
 
-      {/* Savings Tip */}
-      {!isOverBudget && remaining > 100 && (
+      {/* Category status footer: warn when any category is over, even if the
+          overall total is still within budget. Only celebrate when everything
+          is clean and there's real headroom. */}
+      {hasCategoryOver ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="mt-4 p-3 bg-success/10 border border-success/20 rounded-lg flex items-start gap-2"
+          className="mt-4 p-3 bg-warning/10 border border-warning/20 rounded-lg flex items-start gap-2"
         >
-          <TrendingUp className="h-4 w-4 text-success shrink-0 mt-0.5" />
+          <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <div className="text-xs">
-            <p className="font-medium text-success">Looking good!</p>
-            <p className="text-success/80">
-              You have ${remaining.toLocaleString()} buffer for extras or emergencies
+            <p className="font-medium text-warning">Some categories are over their cap</p>
+            <p className="text-warning/80">
+              {categoriesOver
+                .map((k) => categoryConfig[k].label)
+                .join(', ')}{' '}
+              exceeded — adjust your allocation on the Customize page to rebalance.
             </p>
           </div>
         </motion.div>
+      ) : (
+        !isOverBudget &&
+        remaining > 100 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mt-4 p-3 bg-success/10 border border-success/20 rounded-lg flex items-start gap-2"
+          >
+            <TrendingUp className="h-4 w-4 text-success shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <p className="font-medium text-success">Looking good!</p>
+              <p className="text-success/80">
+                You have ${remaining.toLocaleString()} buffer for extras or emergencies
+              </p>
+            </div>
+          </motion.div>
+        )
       )}
     </motion.div>
   );
