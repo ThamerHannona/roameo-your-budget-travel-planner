@@ -90,40 +90,48 @@ const calculateCrowdScore = (destination: Destination, startDate: Date, endDate:
   return Math.round(100 - (avgCrowd - 1) * 20);
 };
 
-// Generate a "why this works" insight
+// Generate a "why this works" insight tuned to the actual scores for these dates
 const generateInsight = (
-  destination: Destination, 
-  budgetRatio: number, 
-  weatherScore: number, 
+  destination: Destination,
+  budgetRatio: number,
+  weatherScore: number,
   crowdScore: number,
-  hasRealFlightData: boolean
+  hasRealFlightData: boolean,
+  tripMonth: number,
 ): string => {
   const insights: string[] = [];
-  
-  if (hasRealFlightData) {
-    insights.push('Live flight prices');
+  const monthWeather = destination.weather[tripMonth];
+  const isBadWeather = monthWeather?.condition === 'rainy' || monthWeather?.condition === 'cold';
+
+  // Budget phrase — scale by how far under budget
+  if (budgetRatio <= 0.5) insights.push(`saves ${Math.round((1 - budgetRatio) * 100)}% of your budget`);
+  else if (budgetRatio <= 0.7) insights.push('strong value');
+  else if (budgetRatio <= 0.85) insights.push('within budget');
+  else if (budgetRatio <= 1.0) insights.push('near the top of your budget');
+
+  // Weather phrase — never claim "perfect weather" when it's rainy/cold
+  if (!isBadWeather) {
+    if (weatherScore >= 85) insights.push('great weather');
+    else if (weatherScore >= 70) insights.push('pleasant weather');
+  } else if (monthWeather?.condition === 'rainy') {
+    insights.push('rainy season — pack layers');
+  } else if (monthWeather?.condition === 'cold') {
+    insights.push('cool weather — bring a jacket');
   }
-  
-  if (budgetRatio <= 0.6) {
-    insights.push('excellent value');
-  } else if (budgetRatio <= 0.75) {
-    insights.push('great savings potential');
-  }
-  
-  if (weatherScore >= 80) {
-    insights.push('perfect weather');
-  } else if (weatherScore >= 60) {
-    insights.push('pleasant weather');
-  }
-  
-  if (crowdScore >= 80) {
-    insights.push('fewer crowds');
-  }
-  
+
+  // Crowd phrase — only when actually quiet
+  if (crowdScore >= 80) insights.push('fewer crowds');
+  else if (crowdScore <= 40) insights.push('peak season crowds');
+
+  // Personality phrase from bestFor when we still have room
   if (destination.bestFor.length > 0 && insights.length < 3) {
     insights.push(`ideal for ${destination.bestFor[0].toLowerCase()}`);
   }
-  
+
+  if (hasRealFlightData && insights.length < 3) {
+    insights.push('live flight pricing');
+  }
+
   return insights.slice(0, 3).join(' • ') || `Discover ${destination.name}'s unique charm`;
 };
 
