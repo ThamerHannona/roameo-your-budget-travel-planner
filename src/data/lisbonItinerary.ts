@@ -1110,7 +1110,7 @@ export const createGenericItinerary = (
       id: `day-${i}`,
       dayNumber: i,
       date: dayDate,
-      weather: { temp: 72, condition: 'sunny', icon: '☀️' },
+      weather: weather ?? { temp: 72, condition: 'sunny', icon: '☀️' },
       dailyBudget,
       proTips: [
         `Explore ${destination.name} like a local by walking the neighborhoods`,
