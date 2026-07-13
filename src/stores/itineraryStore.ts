@@ -10,7 +10,8 @@ interface ItineraryActions {
     endDate: Date,
     totalBudget: number,
     travelers: number,
-    pois?: GenericItineraryPOIs
+    pois?: GenericItineraryPOIs,
+    weather?: { temp: number; condition: 'sunny' | 'partly-cloudy' | 'rainy' | 'cold' | 'hot'; icon: string },
   ) => void;
   swapActivity: (dayId: string, activityId: string, newActivity: Activity) => void;
   reorderActivities: (dayId: string, sourceIndex: number, destinationIndex: number) => void;
