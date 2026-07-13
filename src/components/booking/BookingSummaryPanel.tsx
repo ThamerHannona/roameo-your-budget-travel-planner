@@ -35,6 +35,14 @@ interface BookingSummaryPanelProps {
   tripDates: { start: Date; end: Date };
   travelers: number;
   onProceedToBooking: () => void;
+  // Live selections from the budget allocation step. When provided, these
+  // take precedence over the (usually $0) placeholder flight/hotel entries
+  // in the generated itinerary so the summary matches the trip header.
+  selectedFlightPrice?: number;
+  selectedFlightName?: string;
+  selectedHotelPrice?: number;
+  selectedHotelName?: string;
+  selectedTripTotal?: number;
 }
 
 export function BookingSummaryPanel({
@@ -43,6 +51,11 @@ export function BookingSummaryPanel({
   tripDates,
   travelers,
   onProceedToBooking,
+  selectedFlightPrice,
+  selectedFlightName,
+  selectedHotelPrice,
+  selectedHotelName,
+  selectedTripTotal,
 }: BookingSummaryPanelProps) {
   // Helper to safely format date (handles both Date objects and serialized strings)
   const formatDate = (date: Date | string): string => {
@@ -93,19 +106,28 @@ export function BookingSummaryPanel({
     });
   });
 
-  // Calculate totals
-  const flightTotal = bookingItems
+  // Prefer live selections for flight/hotel totals; fall back to itinerary sums.
+  const itineraryFlightTotal = bookingItems
     .filter(i => i.type === 'flight')
     .reduce((sum, i) => sum + i.price, 0);
-  const hotelTotal = bookingItems
+  const itineraryHotelTotal = bookingItems
     .filter(i => i.type === 'hotel')
     .reduce((sum, i) => sum + i.price, 0);
   const activityTotal = bookingItems
     .filter(i => i.type === 'activity')
     .reduce((sum, i) => sum + i.price, 0);
-  const grandTotal = flightTotal + hotelTotal + activityTotal;
+
+  const flightTotal = selectedFlightPrice && selectedFlightPrice > 0 ? selectedFlightPrice : itineraryFlightTotal;
+  const hotelTotal = selectedHotelPrice && selectedHotelPrice > 0 ? selectedHotelPrice : itineraryHotelTotal;
+  const grandTotal = selectedTripTotal && selectedTripTotal > 0
+    ? selectedTripTotal
+    : flightTotal + hotelTotal + activityTotal;
 
   const bookedCount = bookingItems.filter(i => i.isBooked).length;
+  const totalBookable =
+    (flightTotal > 0 ? 1 : 0) +
+    (hotelTotal > 0 ? 1 : 0) +
+    bookingItems.filter(i => i.type === 'activity').length;
 
   const getIcon = (type: BookingItem['type']) => {
     switch (type) {
