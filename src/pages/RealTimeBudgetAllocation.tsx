@@ -41,21 +41,39 @@ export default function RealTimeBudgetAllocation() {
 
   const { isPaid, checkPaymentStatus, markAsPaid } = usePaymentStore();
 
-  const tripSearch = useTripSearchStore();
-  const {
-    destinationBudget,
-    recentChanges,
-    updateCategory,
-    getSelectedFlight,
-    getSelectedHotel,
-    getTotalAllocated,
-    applyPreset,
-    resetToDefaults,
-    lockBudget,
-    setFlightOptions,
-    setHotelOptions,
-    setDestinationBudget,
-  } = useBudgetConstraintsStore();
+  // Subscribe to primitive slices only — subscribing to the whole store returns
+  // a new object identity on every store update and can trigger effect loops.
+  const tsBudget = useTripSearchStore((s) => s.budget);
+  const tsTravelers = useTripSearchStore((s) => s.travelers);
+  const tsDays = useTripSearchStore((s) => s.days);
+  const tsDepartureCity = useTripSearchStore((s) => s.departureCity);
+  const tsStart = useTripSearchStore((s) => s.dates.start);
+  const tsEnd = useTripSearchStore((s) => s.dates.end);
+  const tsRegions = useTripSearchStore((s) => s.regions);
+  const tripSearch = useMemo(
+    () => ({
+      budget: tsBudget,
+      travelers: tsTravelers,
+      days: tsDays,
+      departureCity: tsDepartureCity,
+      dates: { start: tsStart, end: tsEnd },
+      regions: tsRegions,
+    }),
+    [tsBudget, tsTravelers, tsDays, tsDepartureCity, tsStart, tsEnd, tsRegions]
+  );
+
+  const destinationBudget = useBudgetConstraintsStore((s) => s.destinationBudget);
+  const recentChanges = useBudgetConstraintsStore((s) => s.recentChanges);
+  const updateCategory = useBudgetConstraintsStore((s) => s.updateCategory);
+  const getSelectedFlight = useBudgetConstraintsStore((s) => s.getSelectedFlight);
+  const getSelectedHotel = useBudgetConstraintsStore((s) => s.getSelectedHotel);
+  const getTotalAllocated = useBudgetConstraintsStore((s) => s.getTotalAllocated);
+  const applyPreset = useBudgetConstraintsStore((s) => s.applyPreset);
+  const resetToDefaults = useBudgetConstraintsStore((s) => s.resetToDefaults);
+  const lockBudget = useBudgetConstraintsStore((s) => s.lockBudget);
+  const setFlightOptions = useBudgetConstraintsStore((s) => s.setFlightOptions);
+  const setHotelOptions = useBudgetConstraintsStore((s) => s.setHotelOptions);
+  const setDestinationBudget = useBudgetConstraintsStore((s) => s.setDestinationBudget);
 
   // Real flight search
   const { 
