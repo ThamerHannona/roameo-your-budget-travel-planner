@@ -308,12 +308,33 @@ export default function RealTimeBudgetAllocation() {
     navigate(`/trip/${destinationId}/itinerary`);
   }, [markAsPaid, destinationId, lockBudget, toast, navigate]);
 
-  const selectedFlight = getSelectedFlight();
-  const selectedHotel = getSelectedHotel();
   const { constraints } = destinationBudget;
 
-  // Live sum of what the user actually has selected vs their budget
-  const selectedTotal = getTotalAllocated();
+  // Derived values are memoized off destinationBudget only — do NOT write these
+  // back into state via useEffect (that was the original re-render loop).
+  const selectedFlight = useMemo(
+    () => constraints.flights.options.find((o) => o.price === constraints.flights.current) || null,
+    [constraints.flights.options, constraints.flights.current]
+  );
+  const selectedHotel = useMemo(
+    () => constraints.hotels.tiers.find((t) => t.totalPrice === constraints.hotels.current) || null,
+    [constraints.hotels.tiers, constraints.hotels.current]
+  );
+  const selectedTotal = useMemo(
+    () =>
+      constraints.flights.current +
+      constraints.hotels.current +
+      constraints.activities.current +
+      constraints.food.current +
+      constraints.transport.current,
+    [
+      constraints.flights.current,
+      constraints.hotels.current,
+      constraints.activities.current,
+      constraints.food.current,
+      constraints.transport.current,
+    ]
+  );
   const budgetDiff = destinationBudget.totalBudget - selectedTotal;
   const isOverBudget = budgetDiff < 0;
   const hasLiveFlights = constraints.flights.options.length > 0 && !flightsMockData && !flightsLoading;
