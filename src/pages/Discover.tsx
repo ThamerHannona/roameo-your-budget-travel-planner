@@ -496,8 +496,8 @@ export default function Discover() {
           onOpenChange={setFlexibilityModalOpen}
           destinationName={selectedFlexDestination.name}
           currentDates={{
-            start: tripSearch.dates.start || new Date(),
-            end: tripSearch.dates.end || addDays(new Date(), tripSearch.days - 1),
+            start: resolveTripDates(tripSearch.dates.start, tripSearch.dates.end, tripSearch.days).start,
+            end: resolveTripDates(tripSearch.dates.start, tripSearch.dates.end, tripSearch.days).end,
           }}
           currentPrice={selectedFlexDestination.estimatedTotalCost}
           baseFlightPrice={selectedFlexDestination.flightCost}
