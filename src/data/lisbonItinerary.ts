@@ -1026,8 +1026,67 @@ export const createGenericItinerary = (
         isFree: true,
       });
     }
+    // Day-trip day: for trips 6+ days, insert a suggested day trip every ~4th
+    // day (days 4, 8, 12…) so long stays don't repeat the same city venues.
+    else if (numDays >= 6 && trips.length > 0 && i >= 4 && (i - 4) % 4 === 0 && i < numDays - 1) {
+      const trip = trips[Math.floor((i - 4) / 4) % trips.length];
+      activities.push({
+        id: `d${i}-a1`,
+        time: '08:30',
+        endTime: '09:30',
+        type: 'restaurant',
+        name: 'Early breakfast',
+        description: 'Grab breakfast and coffee before heading out.',
+        cost: Math.round(dailyBudget * 0.08),
+        duration: '1h',
+        location: {
+          name: 'Café',
+          address: `${destination.name}, ${destination.country}`,
+          coordinates: destination.coordinates,
+        },
+        isFree: false,
+      });
+      activities.push({
+        id: `d${i}-a2`,
+        time: '10:00',
+        endTime: '17:00',
+        type: 'tour',
+        name: `Day trip: ${trip}`,
+        description: `Escape the city with a full-day trip to ${trip}. Book a guided tour or use public transport — plan ~7 hours door to door.`,
+        cost: Math.round(dailyBudget * 0.35),
+        duration: '7h',
+        location: {
+          name: trip,
+          address: trip,
+          coordinates: destination.coordinates,
+          googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trip)}`,
+        },
+        bookingUrl: `https://www.google.com/search?q=${encodeURIComponent(trip + ' day trip from ' + destination.name)}`,
+        tips: ['Book tours a day in advance in peak season', 'Bring water, sunscreen, and cash'],
+        isFree: false,
+      });
+      {
+        const r = pickRestaurant();
+        activities.push({
+          id: `d${i}-a3`,
+          time: '19:30',
+          endTime: '21:30',
+          type: 'restaurant',
+          name: r?.name ? `Late dinner at ${r.name}` : 'Late dinner back in town',
+          description: r?.name
+            ? `Unwind with dinner at ${r.name}${r.rating ? ` (${r.rating}★)` : ''}.`
+            : `Unwind with dinner back in ${destination.name}.`,
+          cost: r?.estimatedCost ? r.estimatedCost * 2 : Math.round(dailyBudget * 0.18),
+          duration: '2h',
+          location: locFromPOI(r, 'Restaurant'),
+          bookingUrl: r?.mapsUrl,
+          isFree: false,
+        });
+      }
+    }
     // Regular days: sightseeing
     else {
+
       activities.push({
         id: `d${i}-a1`,
         time: '09:00',
