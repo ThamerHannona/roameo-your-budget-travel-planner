@@ -29,11 +29,14 @@ export default function DayByDayItinerary() {
   const [selectedActivityId, setSelectedActivityId] = useState<string>();
   const [showBookingPanel, setShowBookingPanel] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [poiStatus, setPoiStatus] = useState<POIStatus>('idle');
+  const poiFetchedForRef = useRef<string | null>(null);
 
   const { isPaid, checkPaymentStatus, markAsPaid } = usePaymentStore();
 
   const { destination: selectedDestination, budgetBreakdown } = useSelectedDestinationStore();
   const { budget, travelers, dates } = useTripSearchStore();
+  const { getSelectedFlight, getSelectedHotel, getTotalAllocated } = useBudgetConstraintsStore();
   const {
     days,
     totalBudget,
@@ -46,18 +49,17 @@ export default function DayByDayItinerary() {
     getTotalSpent,
   } = useItineraryStore();
 
-  // Clear and re-initialize if destination ID doesn't match stored destination
+  // Seed itinerary immediately when destination changes / URL doesn't match store
   useEffect(() => {
-    // Check if the URL destinationId matches the stored destination
-    const storedDestinationId = destination.name.toLowerCase().replace(/\s+/g, '-');
-    const urlMatchesStored = destinationId === storedDestinationId || 
-                             destination.name.toLowerCase() === destinationId?.toLowerCase();
-    
-    if (selectedDestination && (days.length === 0 || !urlMatchesStored)) {
-      const startDate = dates.start || new Date();
-      const endDate = dates.end || new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
+    if (!selectedDestination) return;
 
-      // Seed with static generic itinerary immediately so the page renders
+    const storedDestinationId = destination.name.toLowerCase().replace(/\s+/g, '-');
+    const urlMatchesStored =
+      destinationId === storedDestinationId ||
+      destination.name.toLowerCase() === destinationId?.toLowerCase();
+
+    if (days.length === 0 || !urlMatchesStored) {
+      const { start: startDate, end: endDate } = resolveTripDates(dates.start, dates.end, 5);
       initializeItinerary(
         {
           name: selectedDestination.name,
@@ -68,34 +70,51 @@ export default function DayByDayItinerary() {
         startDate,
         endDate,
         budget,
-        travelers
+        travelers,
       );
-
-      // Then fetch real POIs and re-initialize with real places
-      let cancelled = false;
-      fetchDestinationPOIs(selectedDestination.name)
-        .then((pois) => {
-          if (cancelled) return;
-          if (pois.attractions.length || pois.restaurants.length || pois.museums.length) {
-            initializeItinerary(
-              {
-                name: selectedDestination.name,
-                country: selectedDestination.country,
-                imageUrl: selectedDestination.imageUrl,
-                coordinates: selectedDestination.coordinates,
-              },
-              startDate,
-              endDate,
-              budget,
-              travelers,
-              pois
-            );
-          }
-        })
-        .catch((err) => console.warn('Failed to fetch real POIs:', err));
-      return () => { cancelled = true; };
+      // Force a POI re-fetch for the new destination
+      poiFetchedForRef.current = null;
     }
-  }, [selectedDestination, days.length, budget, travelers, dates, initializeItinerary, destinationId, destination.name]);
+  }, [selectedDestination, destinationId, destination.name, days.length, budget, travelers, dates, initializeItinerary]);
+
+  // Fetch real POIs exactly once per destination, independent of re-renders
+  useEffect(() => {
+    if (!selectedDestination) return;
+    const key = selectedDestination.name.toLowerCase();
+    if (poiFetchedForRef.current === key) return;
+    poiFetchedForRef.current = key;
+
+    const { start: startDate, end: endDate } = resolveTripDates(dates.start, dates.end, 5);
+    setPoiStatus('loading');
+
+    fetchDestinationPOIs(selectedDestination.name)
+      .then((pois) => {
+        const hasAny =
+          pois.attractions.length || pois.restaurants.length || pois.museums.length;
+        if (!hasAny) {
+          setPoiStatus('failed');
+          return;
+        }
+        initializeItinerary(
+          {
+            name: selectedDestination.name,
+            country: selectedDestination.country,
+            imageUrl: selectedDestination.imageUrl,
+            coordinates: selectedDestination.coordinates,
+          },
+          startDate,
+          endDate,
+          budget,
+          travelers,
+          pois,
+        );
+        setPoiStatus('ready');
+      })
+      .catch((err) => {
+        console.warn('Failed to fetch real POIs:', err);
+        setPoiStatus('failed');
+      });
+  }, [selectedDestination, dates, budget, travelers, initializeItinerary]);
 
   // Wait for store hydration before redirecting
   const [isHydrated, setIsHydrated] = useState(false);
