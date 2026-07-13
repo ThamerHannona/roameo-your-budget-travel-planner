@@ -1,69 +1,76 @@
 import { Destination } from '@/types/destination';
 
-// Helper to generate weather data
+// Helper to generate weather data.
+// Uses a proper annual sinusoid peaking in July (Northern Hemisphere) so
+// August/summer values reflect real climate (e.g. Dubrovnik in Aug ~ 85°F,
+// not 54°F). Southern-hemisphere destinations aren't in the current set.
 const generateWeather = (
   pattern: 'tropical' | 'mediterranean' | 'continental' | 'monsoon' | 'desert' | 'temperate',
   peakMonths: number[]
 ): Destination['weather'] => {
   const weather: Destination['weather'] = {};
-  
+
+  // Annual cycle: peak in July (month 7), trough in January.
+  // yearPhase(month) in [-1, 1], = 1 in July, = -1 in January.
+  const yearPhase = (month: number) => Math.sin(((month - 4) * Math.PI) / 6);
+
+  // Climate profile: (base F, amplitude F) so base+amp = summer high.
+  const profile: Record<typeof pattern, { base: number; amp: number }> = {
+    tropical:      { base: 82, amp: 4 },   // 78–86 year round
+    mediterranean: { base: 68, amp: 18 },  // 50 in Jan, 86 in Jul
+    continental:   { base: 55, amp: 30 },  // 25 in Jan, 85 in Jul
+    monsoon:       { base: 82, amp: 8 },   // 74–90
+    desert:        { base: 75, amp: 25 },  // 50 in Jan, 100 in Jul
+    temperate:     { base: 58, amp: 20 },  // 38 in Jan, 78 in Jul
+  };
+
   for (let month = 1; month <= 12; month++) {
     const isPeak = peakMonths.includes(month);
-    
+    const { base, amp } = profile[pattern];
+    const temp = Math.round(base + amp * yearPhase(month));
+    const summerMonth = month >= 6 && month <= 9;
+    const winterMonth = month === 12 || month <= 2;
+
+    let condition: 'sunny' | 'partly-cloudy' | 'rainy' | 'cold' | 'hot';
+    let rainfall = 2;
     switch (pattern) {
       case 'tropical':
-        weather[month] = {
-          temp: 82 + Math.sin(month * 0.5) * 5,
-          rainfall: month >= 5 && month <= 10 ? 8 : 2,
-          condition: month >= 5 && month <= 10 ? 'rainy' : 'sunny',
-          crowdLevel: isPeak ? 5 : 2,
-        };
+        rainfall = summerMonth ? 8 : 2;
+        condition = summerMonth ? 'rainy' : 'sunny';
         break;
       case 'mediterranean':
-        weather[month] = {
-          temp: 50 + Math.sin((month - 1) * 0.5) * 30,
-          rainfall: month >= 11 || month <= 2 ? 4 : 1,
-          condition: month >= 6 && month <= 9 ? 'sunny' : month >= 11 || month <= 2 ? 'rainy' : 'partly-cloudy',
-          crowdLevel: isPeak ? 5 : month >= 6 && month <= 8 ? 4 : 2,
-        };
+        rainfall = winterMonth ? 4 : summerMonth ? 0.5 : 1.5;
+        condition = summerMonth ? 'sunny' : winterMonth ? 'rainy' : 'partly-cloudy';
         break;
       case 'continental':
-        weather[month] = {
-          temp: 30 + Math.sin((month - 1) * 0.5) * 40,
-          rainfall: month >= 4 && month <= 9 ? 3 : 2,
-          condition: month >= 12 || month <= 2 ? 'cold' : month >= 6 && month <= 8 ? 'sunny' : 'partly-cloudy',
-          crowdLevel: isPeak ? 5 : 2,
-        };
+        rainfall = summerMonth ? 3 : 2;
+        condition = winterMonth ? 'cold' : summerMonth ? 'sunny' : 'partly-cloudy';
         break;
       case 'monsoon':
-        weather[month] = {
-          temp: 75 + Math.sin(month * 0.5) * 15,
-          rainfall: month >= 6 && month <= 9 ? 12 : 1,
-          condition: month >= 6 && month <= 9 ? 'rainy' : 'sunny',
-          crowdLevel: isPeak ? 5 : month >= 6 && month <= 9 ? 1 : 3,
-        };
+        rainfall = month >= 6 && month <= 9 ? 12 : 1;
+        condition = month >= 6 && month <= 9 ? 'rainy' : 'sunny';
         break;
       case 'desert':
-        weather[month] = {
-          temp: 65 + Math.sin((month - 1) * 0.5) * 25,
-          rainfall: 0.5,
-          condition: month >= 6 && month <= 8 ? 'hot' : 'sunny',
-          crowdLevel: isPeak ? 5 : 2,
-        };
+        rainfall = 0.3;
+        condition = summerMonth ? 'hot' : 'sunny';
         break;
       case 'temperate':
-        weather[month] = {
-          temp: 45 + Math.sin((month - 1) * 0.5) * 25,
-          rainfall: 3,
-          condition: month >= 6 && month <= 8 ? 'partly-cloudy' : month >= 11 || month <= 2 ? 'cold' : 'partly-cloudy',
-          crowdLevel: isPeak ? 4 : 2,
-        };
+        rainfall = 3;
+        condition = winterMonth ? 'cold' : summerMonth ? 'partly-cloudy' : 'partly-cloudy';
         break;
     }
+
+    weather[month] = {
+      temp,
+      rainfall,
+      condition,
+      crowdLevel: (isPeak ? 5 : summerMonth ? 4 : 2) as 1 | 2 | 3 | 4 | 5,
+    };
   }
-  
+
   return weather;
 };
+
 
 export const destinations: Destination[] = [
   // EUROPE
