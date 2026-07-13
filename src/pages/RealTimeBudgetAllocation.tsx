@@ -140,12 +140,22 @@ export default function RealTimeBudgetAllocation() {
   // most ONCE per meaningful change — never re-triggered by our own write to
   // destinationBudget (which was the source of the freeze loop).
   const seedKeyRef = useRef<string | null>(null);
+  // Real nights count from trip dates (nights = date-diff in days; a 14-day
+  // trip Jul 29 – Aug 11 has 13 nights). Falls back to days-1 if dates missing.
+  const realNights = useMemo(() => {
+    if (tsStart && tsEnd) {
+      const ms = new Date(tsEnd).getTime() - new Date(tsStart).getTime();
+      return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
+    }
+    return Math.max(1, (tsDays || 7) - 1);
+  }, [tsStart, tsEnd, tsDays]);
+
   useEffect(() => {
     if (!destination) return;
     const totalBudget = tsBudget;
     const travelers = tsTravelers || 1;
     const days = tsDays || 7;
-    const key = `${destination.id}|${totalBudget}|${travelers}|${days}`;
+    const key = `${destination.id}|${totalBudget}|${travelers}|${days}|${realNights}`;
     if (seedKeyRef.current === key) return;
     seedKeyRef.current = key;
 
@@ -153,10 +163,12 @@ export default function RealTimeBudgetAllocation() {
       `${destination.name}, ${destination.country}`,
       totalBudget,
       travelers,
-      days
+      days,
+      realNights,
     );
     setDestinationBudget(seeded);
-  }, [destination, tsBudget, tsTravelers, tsDays, setDestinationBudget]);
+  }, [destination, tsBudget, tsTravelers, tsDays, realNights, setDestinationBudget]);
+
 
 
   // Fetch real flight data when destination is loaded
