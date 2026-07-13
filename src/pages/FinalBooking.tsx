@@ -32,6 +32,7 @@ import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
 import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
 import { cn } from '@/lib/utils';
+import { resolveTripDates } from '@/utils/tripDates';
 
 interface BookingItem {
   id: string;
