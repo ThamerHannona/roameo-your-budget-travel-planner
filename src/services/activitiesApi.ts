@@ -69,10 +69,11 @@ export async function fetchActivities(
 }
 
 export async function fetchDestinationPOIs(destination: string) {
+  // Fetch a larger pool so long trips (14 days) don't have to repeat venues.
   const [attractions, restaurants, museums] = await Promise.allSettled([
-    fetchActivities(destination, 'attractions', 10),
-    fetchActivities(destination, 'restaurants', 10),
-    fetchActivities(destination, 'museums', 6),
+    fetchActivities(destination, 'attractions', 20),
+    fetchActivities(destination, 'restaurants', 20),
+    fetchActivities(destination, 'museums', 12),
   ]);
   return {
     attractions: attractions.status === 'fulfilled' ? attractions.value.results : [],
@@ -80,6 +81,7 @@ export async function fetchDestinationPOIs(destination: string) {
     museums: museums.status === 'fulfilled' ? museums.value.results : [],
   };
 }
+
 
 export function clearActivityCache() {
   Object.keys(localStorage).forEach((k) => {

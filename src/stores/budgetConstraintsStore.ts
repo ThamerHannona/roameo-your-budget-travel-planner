@@ -9,7 +9,7 @@ import type {
   HotelTier,
   DestinationBudget,
 } from '@/types/budgetConstraints';
-import { marrakechBudgetData, budgetPresets } from '@/data/mockBudgetData';
+import { budgetPresets, generateBudgetConstraints } from '@/data/mockBudgetData';
 
 interface BudgetConstraintsState {
   destinationBudget: DestinationBudget;
@@ -138,13 +138,20 @@ function redistributeBudget(
   return newConstraints;
 }
 
+// Neutral placeholder — destination-specific values are seeded by
+// RealTimeBudgetAllocation via generateBudgetConstraints() as soon as the
+// user's real trip params are known. Never bake Marrakech numbers into
+// unrelated destinations.
+const emptyDestinationBudget: DestinationBudget = generateBudgetConstraints('', 0, 1, 1, 1);
+
 const initialState: BudgetConstraintsState = {
-  destinationBudget: marrakechBudgetData,
+  destinationBudget: emptyDestinationBudget,
   recentChanges: [],
   isLocked: false,
   hasRealFlightData: false,
   hasRealHotelData: false,
 };
+
 
 export const useBudgetConstraintsStore = create<
   BudgetConstraintsState & BudgetConstraintsActions
@@ -380,11 +387,17 @@ export const useBudgetConstraintsStore = create<
       },
 
       resetToDefaults: () => {
-        set({
-          destinationBudget: marrakechBudgetData,
-          recentChanges: [],
-        });
+        // Reseed against the current destination/budget/travelers/days.
+        const { destinationBudget } = get();
+        const reseeded = generateBudgetConstraints(
+          destinationBudget.destination,
+          destinationBudget.totalBudget,
+          destinationBudget.travelers,
+          destinationBudget.days,
+        );
+        set({ destinationBudget: reseeded, recentChanges: [] });
       },
+
 
       lockBudget: () => set({ isLocked: true }),
       unlockBudget: () => set({ isLocked: false }),
