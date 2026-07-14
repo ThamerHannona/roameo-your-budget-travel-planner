@@ -56,10 +56,9 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights }: HotelPic
     };
   }, [tiers]);
 
-  // Init maxNightly once when tiers arrive
-  useEffect(() => {
-    if (tiers.length && maxNightly === 0) setMaxNightly(priceRange.max);
-  }, [tiers.length, priceRange.max, maxNightly]);
+  // Effective max/night cap: user's value or the natural max (no filter)
+  const effectiveMax = maxNightly > 0 ? maxNightly : priceRange.max;
+
 
   // Highlight picks: 25th-percentile 4★ = Budget, median 4★ = Comfort, top-rated = Luxury
   const highlights = useMemo(() => {
