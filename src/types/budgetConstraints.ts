@@ -1,7 +1,8 @@
 // Budget Constraints Types for Real-Time Allocation
 
 export interface FlightOption {
-  id: string;
+  id?: string;
+
   airline: string;
   airlineLogo?: string;
   flightNumber: string;
