@@ -81,6 +81,8 @@ export const AIRPORT_CODES: Record<string, string> = {
   'Tel Aviv': 'TLV',
   'Amman': 'AMM',
   'Medina': 'MED',
+  'Zanzibar': 'ZNZ',
+
 
   // Asia
   'Tokyo': 'NRT',
