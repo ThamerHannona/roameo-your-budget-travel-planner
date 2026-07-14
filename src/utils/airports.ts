@@ -145,6 +145,8 @@ export const AIRPORT_CODES: Record<string, string> = {
   'Auckland': 'AKL',
   'Queenstown': 'ZQN',
   'Fiji': 'NAN',
+  'Nadi': 'NAN',
+
 };
 
 // Reverse mapping: code -> city
