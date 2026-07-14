@@ -12,9 +12,10 @@ import {
   FeedbackPanel, 
   BudgetPresets,
   ComparisonView,
-  FlightTierSelector,
-  HotelTierSelector,
+  FlightPicker,
+  HotelPicker,
 } from '@/components/budgetAllocation';
+
 import { PaywallModal } from '@/components/paywall';
 import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
@@ -195,74 +196,65 @@ export default function RealTimeBudgetAllocation() {
     if (!result?.options?.length) return;
 
     const travelers = tsTravelers || 1;
-    
-    // Map SerpAPI flight options to store format
-    // SerpAPI already returns total price for all travelers when `adults` param is passed
-    const mappedOptions: FlightOption[] = result.options.map((opt, index) => ({
+
+    // Map SerpAPI flight options to store format — keep FULL list
+    const mappedOptions: FlightOption[] = result.options.map((opt) => ({
+      id: opt.id,
       airline: opt.airline,
+      airlineLogo: opt.airlineLogo,
       flightNumber: opt.flightNumber,
-      price: opt.price, // Already total price for all travelers from SerpAPI
-      pricePerPerson: Math.round(opt.price / travelers), // Calculate per-person for display
+      price: opt.price, // total for all travelers
+      pricePerPerson: Math.round(opt.price / travelers),
       duration: opt.duration,
       stops: opt.layovers,
       layover: opt.layoverDuration || undefined,
+      layoverCities: opt.layoverCities,
       direct: opt.layovers === 0,
+      departureTime: opt.departure?.time,
+      arrivalTime: opt.arrival?.time,
+      departureAirport: opt.departure?.airport,
+      arrivalAirport: opt.arrival?.airport,
       bookingUrl: opt.bookingUrl,
     }));
 
-    // Sort by price and assign tiers
     const sortedOptions = [...mappedOptions].sort((a, b) => a.price - b.price);
-    
     setFlightOptions(sortedOptions);
   }, [destination, flightResults, tsTravelers, setFlightOptions]);
 
-  // Map real hotel results to store format
+
+  // Map real hotel results to store format — FULL list, not just 3 tiers
   useEffect(() => {
     if (!destination) return;
-    
-    // Hotels are stored by destination name (city)
+
     const result = hotelResults.get(destination.name);
     if (!result?.options?.length) return;
 
-    const nights = tsDays || 7;
-    
-    // Group hotels by tier
-    const tierMap: Record<string, typeof result.options> = {
-      '5-star': [],
-      '4-star': [],
-      '3-star': [],
-    };
-    
-    result.options.forEach((hotel) => {
-      tierMap[hotel.tier]?.push(hotel);
+    const mappedTiers: HotelTier[] = result.options.map((hotel) => {
+      const stars = hotel.stars || 3;
+      const tierLabel: '3★' | '4★' | '5★' = stars >= 5 ? '5★' : stars >= 4 ? '4★' : '3★';
+      return {
+        id: hotel.id,
+        tier: tierLabel,
+        stars,
+        name: hotel.name,
+        pricePerNight: hotel.pricePerNight,
+        totalPrice: hotel.totalPrice,
+        description: `${stars}-star accommodation`,
+        amenities: hotel.amenities || [],
+        bookingUrl: hotel.bookingUrl,
+        imageUrl: hotel.imageUrl,
+        images: hotel.images,
+        rating: hotel.rating,
+        reviewCount: hotel.reviewCount,
+        distance: hotel.distance,
+      };
     });
-    
-    // Build tiers from real hotel data
-    const mappedTiers: HotelTier[] = [];
-    
-    (['3-star', '4-star', '5-star'] as const).forEach((tier) => {
-      const tieredHotels = tierMap[tier];
-      if (tieredHotels && tieredHotels.length > 0) {
-        const bestHotel = tieredHotels[0];
-        const tierLabel = tier === '3-star' ? '3★' : tier === '4-star' ? '4★' : '5★';
-        
-        mappedTiers.push({
-          tier: tierLabel,
-          name: bestHotel.name,
-          pricePerNight: bestHotel.pricePerNight,
-          totalPrice: bestHotel.totalPrice,
-          description: `${tierLabel.replace('★', '-star')} accommodation`,
-          amenities: bestHotel.amenities || ['WiFi', 'Parking'],
-          bookingUrl: bestHotel.bookingUrl,
-          imageUrl: bestHotel.imageUrl,
-        });
-      }
-    });
-    
+
     if (mappedTiers.length > 0) {
       setHotelOptions(mappedTiers);
     }
-  }, [destination, hotelResults, tsDays, setHotelOptions]);
+  }, [destination, hotelResults, setHotelOptions]);
+
 
   const handleCategoryChange = useCallback(
     (category: CategoryKey) => (value: number) => {
@@ -487,13 +479,13 @@ export default function RealTimeBudgetAllocation() {
                 )}
               </div>
               
-              <FlightTierSelector
+              <FlightPicker
                 options={constraints.flights.options}
                 selectedPrice={constraints.flights.current}
                 onSelect={handleCategoryChange('flights')}
-                totalBudget={destinationBudget.totalBudget}
                 travelers={tripSearch.travelers}
               />
+
             </motion.div>
 
             {/* Hotel Tier Selector */}
@@ -523,13 +515,13 @@ export default function RealTimeBudgetAllocation() {
                 )}
               </div>
               
-              <HotelTierSelector
+              <HotelPicker
                 tiers={constraints.hotels.tiers}
                 selectedPrice={constraints.hotels.current}
                 onSelect={handleCategoryChange('hotels')}
-                totalBudget={destinationBudget.totalBudget}
                 nights={realNights}
               />
+
             </motion.div>
 
             {/* Category Sliders */}

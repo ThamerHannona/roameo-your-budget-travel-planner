@@ -356,7 +356,8 @@ serve(async (req) => {
       );
     }
 
-    // For POST requests (legacy), return tier-based format
+    // For POST requests, return the FULL list of normalized flights.
+    // Client derives tier highlights + applies sort/filter.
     if (allFlights.length === 0) {
       return new Response(
         JSON.stringify({ ok: true, origin, destination, options: [], searchUrl, searchDate: new Date().toISOString(), totalFound: 0 }),
@@ -364,33 +365,15 @@ serve(async (req) => {
       );
     }
 
-    let selectedFlights: any[] = [];
-    if (allFlights.length <= 3) {
-      selectedFlights = allFlights.map((f, i) => transformFlightLegacy(f, searchUrl, categorizeTier(allFlights, i)));
-    } else {
-      const budgetFlight = allFlights[0];
-      const midFlight = allFlights[Math.floor(allFlights.length / 2)];
-      const directFlight = allFlights.find(f => f.flights.length === 1);
-      const premiumFlight = directFlight || allFlights[allFlights.length - 1];
-      selectedFlights = [
-        transformFlightLegacy(budgetFlight, searchUrl, 'budget'),
-        transformFlightLegacy(midFlight, searchUrl, 'mid'),
-        transformFlightLegacy(premiumFlight, searchUrl, 'premium'),
-      ];
-      const seenPrices = new Set<number>();
-      selectedFlights = selectedFlights.filter(f => {
-        if (seenPrices.has(f.price)) return false;
-        seenPrices.add(f.price);
-        return true;
-      });
-    }
+    const options = allFlights.map((f, i) => transformFlightLegacy(f, searchUrl, categorizeTier(allFlights, i)));
 
-    console.log(`Found ${selectedFlights.length} flight options`);
+    console.log(`Returning ${options.length} flight options (of ${allFlights.length} total)`);
 
     return new Response(
-      JSON.stringify({ ok: true, origin, destination, options: selectedFlights, searchUrl, searchDate: new Date().toISOString(), totalFound: allFlights.length }),
+      JSON.stringify({ ok: true, origin, destination, options, searchUrl, searchDate: new Date().toISOString(), totalFound: allFlights.length }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
 
   } catch (error) {
     console.error('Flight search error:', error);

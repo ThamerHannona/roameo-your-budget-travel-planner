@@ -1,19 +1,31 @@
 // Budget Constraints Types for Real-Time Allocation
 
 export interface FlightOption {
+  id?: string;
+
   airline: string;
+  airlineLogo?: string;
   flightNumber: string;
   price: number; // Total price for all travelers
-  pricePerPerson?: number; // Per-person price for display
+  pricePerPerson?: number;
   duration: string;
+  durationMinutes?: number;
   stops: number;
   layover?: string;
+  layoverCities?: string[];
   direct?: boolean;
+  departureTime?: string; // ISO or "HH:MM"
+  arrivalTime?: string;
+  departureAirport?: string;
+  arrivalAirport?: string;
   bookingUrl?: string;
 }
 
 export interface HotelTier {
+  id?: string;
+
   tier: '3★' | '4★' | '5★';
+  stars?: number; // 3, 4, 5
   name: string;
   pricePerNight: number;
   totalPrice: number;
@@ -21,7 +33,12 @@ export interface HotelTier {
   amenities: string[];
   bookingUrl?: string;
   imageUrl?: string;
+  images?: string[];
+  rating?: number;
+  reviewCount?: number;
+  distance?: string;
 }
+
 
 export interface ActivityTier {
   cost: number;
