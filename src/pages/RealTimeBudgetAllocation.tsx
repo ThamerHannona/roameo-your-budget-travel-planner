@@ -195,26 +195,31 @@ export default function RealTimeBudgetAllocation() {
     if (!result?.options?.length) return;
 
     const travelers = tsTravelers || 1;
-    
-    // Map SerpAPI flight options to store format
-    // SerpAPI already returns total price for all travelers when `adults` param is passed
-    const mappedOptions: FlightOption[] = result.options.map((opt, index) => ({
+
+    // Map SerpAPI flight options to store format — keep FULL list
+    const mappedOptions: FlightOption[] = result.options.map((opt) => ({
+      id: opt.id,
       airline: opt.airline,
+      airlineLogo: opt.airlineLogo,
       flightNumber: opt.flightNumber,
-      price: opt.price, // Already total price for all travelers from SerpAPI
-      pricePerPerson: Math.round(opt.price / travelers), // Calculate per-person for display
+      price: opt.price, // total for all travelers
+      pricePerPerson: Math.round(opt.price / travelers),
       duration: opt.duration,
       stops: opt.layovers,
       layover: opt.layoverDuration || undefined,
+      layoverCities: opt.layoverCities,
       direct: opt.layovers === 0,
+      departureTime: opt.departure?.time,
+      arrivalTime: opt.arrival?.time,
+      departureAirport: opt.departure?.airport,
+      arrivalAirport: opt.arrival?.airport,
       bookingUrl: opt.bookingUrl,
     }));
 
-    // Sort by price and assign tiers
     const sortedOptions = [...mappedOptions].sort((a, b) => a.price - b.price);
-    
     setFlightOptions(sortedOptions);
   }, [destination, flightResults, tsTravelers, setFlightOptions]);
+
 
   // Map real hotel results to store format
   useEffect(() => {
