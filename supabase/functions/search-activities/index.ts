@@ -9,7 +9,7 @@ const ActivitySearchSchema = z.object({
   destination: z.string().trim().min(2).max(100)
     .regex(/^[\p{L}0-9\s,.\-'()]+$/u, 'destination contains invalid characters'),
   category: z.enum(['attractions', 'restaurants', 'museums']).default('attractions'),
-  limit: z.number().int().min(1).max(20).default(10),
+  limit: z.number().int().min(1).max(60).default(30),
 });
 
 const corsHeaders = {
@@ -132,31 +132,51 @@ serve(async (req) => {
     };
     const q = queryMap[category];
 
-    const params = new URLSearchParams({
-      engine: 'google_maps',
-      type: 'search',
-      q,
-      api_key: serpApiKey,
-      hl: 'en',
-    });
-
-    const apiUrl = `https://serpapi.com/search.json?${params}`;
-    console.log('Activities SerpAPI:', apiUrl.replace(serpApiKey, 'REDACTED'));
-
-    const response = await fetch(apiUrl);
-    if (!response.ok) {
-      const txt = await response.text();
-      console.error('SerpAPI error:', response.status, txt);
-      const status = response.status === 429 ? 429 : response.status >= 500 ? 502 : 422;
-      return jsonRes({ ok: false, error: `SerpAPI error: ${response.status}`, debug: txt }, status);
+    // Paginate google_maps results with `start` (20 per page) until we hit the limit or run out.
+    const rawResults: SerpLocal[] = [];
+    const seen = new Set<string>();
+    const maxPages = Math.min(3, Math.ceil(limit / 20));
+    let firstError: { status: number; text: string } | null = null;
+    for (let page = 0; page < maxPages; page++) {
+      const params = new URLSearchParams({
+        engine: 'google_maps',
+        type: 'search',
+        q,
+        api_key: serpApiKey,
+        hl: 'en',
+        start: String(page * 20),
+      });
+      const apiUrl = `https://serpapi.com/search.json?${params}`;
+      console.log('Activities SerpAPI page', page, apiUrl.replace(serpApiKey, 'REDACTED'));
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        const txt = await response.text();
+        console.error('SerpAPI error:', response.status, txt);
+        if (page === 0) firstError = { status: response.status, text: txt };
+        break;
+      }
+      const data = await response.json();
+      if (data.error) {
+        if (page === 0) return jsonRes({ ok: false, error: data.error }, 422);
+        break;
+      }
+      const pageResults: SerpLocal[] = data.local_results || [];
+      if (pageResults.length === 0) break;
+      for (const r of pageResults) {
+        const key = r.place_id || r.data_id || r.title || JSON.stringify(r.gps_coordinates);
+        if (key && seen.has(key)) continue;
+        if (key) seen.add(key);
+        rawResults.push(r);
+        if (rawResults.length >= limit) break;
+      }
+      if (rawResults.length >= limit) break;
     }
-    const data = await response.json();
-    if (data.error) {
-      return jsonRes({ ok: false, error: data.error }, 422);
+    if (rawResults.length === 0 && firstError) {
+      const status = firstError.status === 429 ? 429 : firstError.status >= 500 ? 502 : 422;
+      return jsonRes({ ok: false, error: `SerpAPI error: ${firstError.status}`, debug: firstError.text }, status);
     }
 
-    const rawResults: SerpLocal[] = data.local_results || [];
-    const results = rawResults.slice(0, limit).map((r) => {
+    const results = rawResults.map((r) => {
       const priceLevel = r.price ? r.price.length : 0; // "$", "$$", "$$$"
       // rough per-person price estimate
       let estimatedCost = 0;

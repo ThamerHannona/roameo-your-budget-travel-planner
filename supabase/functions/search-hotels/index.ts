@@ -233,28 +233,39 @@ serve(async (req) => {
 
     let allHotels: SerpApiHotel[] = data.properties || [];
 
-    // Follow next_page_token once to reach ~30 properties.
-    const nextToken: string | undefined = data.serpapi_pagination?.next_page_token
+    // Follow next_page_token up to 2 more times to reach ~50 properties.
+    const TARGET = 50;
+    const MAX_EXTRA_PAGES = 2;
+    let nextToken: string | undefined = data.serpapi_pagination?.next_page_token
       || data.pagination?.next_page_token
       || data.next_page_token;
-    if (nextToken && allHotels.length < 25) {
+    let pagesFetched = 0;
+    while (nextToken && allHotels.length < TARGET && pagesFetched < MAX_EXTRA_PAGES) {
+      pagesFetched++;
       try {
-        const page2Params = new URLSearchParams(searchParams);
-        page2Params.set('next_page_token', nextToken);
-        const page2Url = `https://serpapi.com/search.json?${page2Params}`;
-        const page2Res = await fetch(page2Url);
-        if (page2Res.ok) {
-          const page2Data = await page2Res.json();
-          const page2Hotels: SerpApiHotel[] = page2Data.properties || [];
-          allHotels = [...allHotels, ...page2Hotels].slice(0, 30);
-          console.log(`Fetched page 2, total hotels: ${allHotels.length}`);
-        } else {
-          await page2Res.text();
+        const pageParams = new URLSearchParams(searchParams);
+        pageParams.set('next_page_token', nextToken);
+        const pageUrl = `https://serpapi.com/search.json?${pageParams}`;
+        const pageRes = await fetch(pageUrl);
+        if (!pageRes.ok) {
+          await pageRes.text();
+          break;
         }
+        const pageData = await pageRes.json();
+        const pageHotels: SerpApiHotel[] = pageData.properties || [];
+        if (pageHotels.length === 0) break;
+        allHotels = [...allHotels, ...pageHotels];
+        console.log(`Fetched hotel page ${pagesFetched + 1}, total: ${allHotels.length}`);
+        nextToken = pageData.serpapi_pagination?.next_page_token
+          || pageData.pagination?.next_page_token
+          || pageData.next_page_token;
       } catch (e) {
-        console.warn('Page 2 fetch failed, continuing with page 1:', e);
+        console.warn(`Hotel page ${pagesFetched + 1} fetch failed:`, e);
+        break;
       }
     }
+    allHotels = allHotels.slice(0, TARGET);
+
 
     if (allHotels.length === 0) {
       return jsonRes({

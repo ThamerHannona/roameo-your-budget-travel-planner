@@ -46,9 +46,9 @@ function setCache(k: string, data: ActivitySearchResult) {
 export async function fetchActivities(
   destination: string,
   category: 'attractions' | 'restaurants' | 'museums' = 'attractions',
-  limit = 10
+  limit = 30
 ): Promise<ActivitySearchResult> {
-  const key = cacheKey(destination, category);
+  const key = `${cacheKey(destination, category)}_${limit}`;
   const cached = getCache(key);
   if (cached) return cached;
 
@@ -69,11 +69,11 @@ export async function fetchActivities(
 }
 
 export async function fetchDestinationPOIs(destination: string) {
-  // Fetch a larger pool so long trips (14 days) don't have to repeat venues.
+  // Fetch large pools so users see 20-30+ options per category and long trips don't repeat venues.
   const [attractions, restaurants, museums] = await Promise.allSettled([
-    fetchActivities(destination, 'attractions', 20),
-    fetchActivities(destination, 'restaurants', 20),
-    fetchActivities(destination, 'museums', 12),
+    fetchActivities(destination, 'attractions', 40),
+    fetchActivities(destination, 'restaurants', 40),
+    fetchActivities(destination, 'museums', 20),
   ]);
   return {
     attractions: attractions.status === 'fulfilled' ? attractions.value.results : [],
@@ -81,6 +81,7 @@ export async function fetchDestinationPOIs(destination: string) {
     museums: museums.status === 'fulfilled' ? museums.value.results : [],
   };
 }
+
 
 
 export function clearActivityCache() {
