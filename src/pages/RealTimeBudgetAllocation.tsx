@@ -479,13 +479,13 @@ export default function RealTimeBudgetAllocation() {
                 )}
               </div>
               
-              <FlightTierSelector
+              <FlightPicker
                 options={constraints.flights.options}
                 selectedPrice={constraints.flights.current}
                 onSelect={handleCategoryChange('flights')}
-                totalBudget={destinationBudget.totalBudget}
                 travelers={tripSearch.travelers}
               />
+
             </motion.div>
 
             {/* Hotel Tier Selector */}
