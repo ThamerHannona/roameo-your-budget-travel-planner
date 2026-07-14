@@ -63,6 +63,10 @@ export const AIRPORT_CODES: Record<string, string> = {
   'Zurich': 'ZRH',
   'Geneva': 'GVA',
   'Brussels': 'BRU',
+  'Dubrovnik': 'DBV',
+  'Split': 'SPU',
+  'Zagreb': 'ZAG',
+
 
   // Africa & Middle East
   'Marrakech': 'RAK',
@@ -77,6 +81,8 @@ export const AIRPORT_CODES: Record<string, string> = {
   'Tel Aviv': 'TLV',
   'Amman': 'AMM',
   'Medina': 'MED',
+  'Zanzibar': 'ZNZ',
+
 
   // Asia
   'Tokyo': 'NRT',
@@ -104,12 +110,19 @@ export const AIRPORT_CODES: Record<string, string> = {
 
   // Americas
   'Cancun': 'CUN',
+  'Cancún': 'CUN',
+  'Playa del Carmen': 'CUN',
   'Mexico City': 'MEX',
   'Puerto Vallarta': 'PVR',
   'Cabo San Lucas': 'SJD',
   'Havana': 'HAV',
   'Punta Cana': 'PUJ',
   'San Juan': 'SJU',
+  'Montego Bay': 'MBJ',
+  'San José': 'SJO',
+  'San Jose': 'SJO',
+  'Honolulu': 'HNL',
+  'New York City': 'JFK',
   'Lima': 'LIM',
   'Cusco': 'CUZ',
   'Buenos Aires': 'EZE',
@@ -119,10 +132,12 @@ export const AIRPORT_CODES: Record<string, string> = {
   'Bogota': 'BOG',
   'Cartagena': 'CTG',
   'Medellin': 'MDE',
+  'Medellín': 'MDE',
   'Quito': 'UIO',
   'Toronto': 'YYZ',
   'Vancouver': 'YVR',
   'Montreal': 'YUL',
+
   
   // Oceania
   'Sydney': 'SYD',
@@ -130,6 +145,8 @@ export const AIRPORT_CODES: Record<string, string> = {
   'Auckland': 'AKL',
   'Queenstown': 'ZQN',
   'Fiji': 'NAN',
+  'Nadi': 'NAN',
+
 };
 
 // Reverse mapping: code -> city
@@ -146,30 +163,34 @@ const CODE_TO_CITY: Record<string, string> = Object.entries(AIRPORT_CODES).reduc
  */
 export function getAirportCode(cityName: string): string | null {
   if (!cityName) return null;
-  
-  const normalized = cityName.trim().toLowerCase();
-  
-  // Exact match first
+
+  const stripDiacritics = (s: string) =>
+    s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const normalized = stripDiacritics(cityName.trim().toLowerCase());
+
+  // Exact match first (diacritic-insensitive)
   for (const [city, code] of Object.entries(AIRPORT_CODES)) {
-    if (city.toLowerCase() === normalized) {
+    if (stripDiacritics(city.toLowerCase()) === normalized) {
       return code;
     }
   }
-  
+
   // Partial match
   for (const [city, code] of Object.entries(AIRPORT_CODES)) {
-    if (city.toLowerCase().includes(normalized) || normalized.includes(city.toLowerCase())) {
+    const c = stripDiacritics(city.toLowerCase());
+    if (c.includes(normalized) || normalized.includes(c)) {
       return code;
     }
   }
-  
+
   // Check if input is already an airport code
   if (normalized.length === 3 && normalized.toUpperCase() in CODE_TO_CITY) {
     return normalized.toUpperCase();
   }
-  
+
   return null;
 }
+
 
 /**
  * Get city name from airport code

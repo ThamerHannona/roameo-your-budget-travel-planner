@@ -33,7 +33,7 @@ export interface HotelSearchParams {
 }
 
 // Cache configuration
-const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
 const CACHE_PREFIX = 'hotel_search_';
 
 interface CacheEntry {
