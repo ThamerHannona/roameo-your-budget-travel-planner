@@ -110,12 +110,19 @@ export const AIRPORT_CODES: Record<string, string> = {
 
   // Americas
   'Cancun': 'CUN',
+  'Cancún': 'CUN',
+  'Playa del Carmen': 'CUN',
   'Mexico City': 'MEX',
   'Puerto Vallarta': 'PVR',
   'Cabo San Lucas': 'SJD',
   'Havana': 'HAV',
   'Punta Cana': 'PUJ',
   'San Juan': 'SJU',
+  'Montego Bay': 'MBJ',
+  'San José': 'SJO',
+  'San Jose': 'SJO',
+  'Honolulu': 'HNL',
+  'New York City': 'JFK',
   'Lima': 'LIM',
   'Cusco': 'CUZ',
   'Buenos Aires': 'EZE',
@@ -125,10 +132,12 @@ export const AIRPORT_CODES: Record<string, string> = {
   'Bogota': 'BOG',
   'Cartagena': 'CTG',
   'Medellin': 'MDE',
+  'Medellín': 'MDE',
   'Quito': 'UIO',
   'Toronto': 'YYZ',
   'Vancouver': 'YVR',
   'Montreal': 'YUL',
+
   
   // Oceania
   'Sydney': 'SYD',
