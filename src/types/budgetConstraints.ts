@@ -22,7 +22,8 @@ export interface FlightOption {
 }
 
 export interface HotelTier {
-  id: string;
+  id?: string;
+
   tier: '3★' | '4★' | '5★';
   stars?: number; // 3, 4, 5
   name: string;
