@@ -73,17 +73,18 @@ function setCache(key: string, data: HotelSearchResult): void {
   }
 }
 
-function categorizeTier(rating: number | null, price: number | null, index: number, total: number): '3-star' | '4-star' | '5-star' {
+function categorizeTier(stars: number | null, rating: number | null): '3-star' | '4-star' | '5-star' {
+  if (stars) {
+    if (stars >= 5) return '5-star';
+    if (stars >= 4) return '4-star';
+    return '3-star';
+  }
   if (rating !== null) {
     if (rating >= 4.5) return '5-star';
     if (rating >= 4.0) return '4-star';
     return '3-star';
   }
-  // Fallback: use position in sorted list
-  if (total <= 1) return '4-star';
-  if (index === 0) return '3-star';
-  if (index === total - 1) return '5-star';
-  return '4-star';
+  return '3-star';
 }
 
 function calculateNights(checkIn: string, checkOut: string): number {
@@ -91,7 +92,8 @@ function calculateNights(checkIn: string, checkOut: string): number {
 }
 
 /**
- * Fetch hotel options from SerpAPI via edge function - NO mock fallback
+ * Fetch hotel options from SerpAPI via edge function - NO mock fallback.
+ * Returns the FULL list (typically 20-30 properties). Filters/sort are applied client-side.
  */
 export async function fetchHotelOptions(
   params: HotelSearchParams
@@ -118,65 +120,48 @@ export async function fetchHotelOptions(
     throw new Error(data.error || 'Hotel search returned an error');
   }
 
-  // Normalize the new response format into HotelOption[]
   const rawResults: any[] = data.results || [];
   const searchUrl = data.searchUrl || `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination)}`;
 
   if (rawResults.length === 0) {
-    const emptyResult: HotelSearchResult = {
+    return {
       destination,
       options: [],
       searchUrl,
       searchDate: new Date().toISOString(),
       totalFound: 0,
     };
-    return emptyResult;
   }
 
-  // Sort by price for tier assignment
-  const withPrices = rawResults.filter(r => r.price || r.totalPrice || r.pricePerNight);
-  withPrices.sort((a, b) => (a.price || a.pricePerNight || 0) - (b.price || b.pricePerNight || 0));
+  // Keep only priced hotels; sort by nightly price
+  const withPrices = rawResults.filter(r => r.pricePerNight || r.totalPrice || r.price);
+  withPrices.sort((a, b) => (a.pricePerNight || a.price || 0) - (b.pricePerNight || b.price || 0));
 
   const options: HotelOption[] = withPrices.map((r, idx) => {
     const pricePerNight = r.pricePerNight || r.price || 0;
     const totalPrice = r.totalPrice || pricePerNight * nights;
+    const stars: number = typeof r.stars === 'number' ? r.stars : 0;
     return {
-      id: `hotel-${idx}-${Date.now()}`,
+      id: `hotel-${idx}-${(r.name || 'unnamed').slice(0, 20)}`,
       name: r.name,
       pricePerNight: Math.round(pricePerNight),
       totalPrice: Math.round(totalPrice),
       rating: r.rating || 0,
       reviewCount: r.reviews || 0,
-      tier: categorizeTier(r.rating, pricePerNight, idx, withPrices.length),
+      stars: stars || (r.rating >= 4.5 ? 5 : r.rating >= 4.0 ? 4 : 3),
+      tier: categorizeTier(stars, r.rating),
       amenities: r.amenities || [],
-      imageUrl: r.thumbnail || 'https://placehold.co/400x300',
+      imageUrl: r.thumbnail || (r.images?.[0] ?? 'https://placehold.co/400x300'),
+      images: r.images || [],
       bookingUrl: r.link || searchUrl,
       location: destination,
+      distance: r.distance || undefined,
     };
   });
 
-  // Pick representative hotels per tier (budget/mid/premium)
-  let selectedOptions = options;
-  if (options.length > 3) {
-    const budget = options[0];
-    const mid = options[Math.floor(options.length / 2)];
-    const premium = [...options].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
-
-    const seen = new Set<string>();
-    selectedOptions = [
-      { ...budget, tier: '3-star' as const },
-      { ...mid, tier: '4-star' as const },
-      { ...premium, tier: '5-star' as const },
-    ].filter(h => {
-      if (seen.has(h.name)) return false;
-      seen.add(h.name);
-      return true;
-    });
-  }
-
   const result: HotelSearchResult = {
     destination,
-    options: selectedOptions,
+    options,
     searchUrl,
     searchDate: new Date().toISOString(),
     totalFound: data.totalFound || rawResults.length,
@@ -185,6 +170,7 @@ export async function fetchHotelOptions(
   setCache(cacheKey, result);
   return result;
 }
+
 
 /**
  * Get hotel by tier
