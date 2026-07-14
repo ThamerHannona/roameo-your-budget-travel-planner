@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Building2, Check, ArrowUpRight, Star, MapPin, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
