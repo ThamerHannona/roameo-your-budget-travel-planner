@@ -63,6 +63,10 @@ export const AIRPORT_CODES: Record<string, string> = {
   'Zurich': 'ZRH',
   'Geneva': 'GVA',
   'Brussels': 'BRU',
+  'Dubrovnik': 'DBV',
+  'Split': 'SPU',
+  'Zagreb': 'ZAG',
+
 
   // Africa & Middle East
   'Marrakech': 'RAK',
