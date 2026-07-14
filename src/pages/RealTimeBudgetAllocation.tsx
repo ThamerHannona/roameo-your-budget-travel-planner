@@ -221,53 +221,39 @@ export default function RealTimeBudgetAllocation() {
   }, [destination, flightResults, tsTravelers, setFlightOptions]);
 
 
-  // Map real hotel results to store format
+  // Map real hotel results to store format — FULL list, not just 3 tiers
   useEffect(() => {
     if (!destination) return;
-    
-    // Hotels are stored by destination name (city)
+
     const result = hotelResults.get(destination.name);
     if (!result?.options?.length) return;
 
-    const nights = tsDays || 7;
-    
-    // Group hotels by tier
-    const tierMap: Record<string, typeof result.options> = {
-      '5-star': [],
-      '4-star': [],
-      '3-star': [],
-    };
-    
-    result.options.forEach((hotel) => {
-      tierMap[hotel.tier]?.push(hotel);
+    const mappedTiers: HotelTier[] = result.options.map((hotel) => {
+      const stars = hotel.stars || 3;
+      const tierLabel: '3★' | '4★' | '5★' = stars >= 5 ? '5★' : stars >= 4 ? '4★' : '3★';
+      return {
+        id: hotel.id,
+        tier: tierLabel,
+        stars,
+        name: hotel.name,
+        pricePerNight: hotel.pricePerNight,
+        totalPrice: hotel.totalPrice,
+        description: `${stars}-star accommodation`,
+        amenities: hotel.amenities || [],
+        bookingUrl: hotel.bookingUrl,
+        imageUrl: hotel.imageUrl,
+        images: hotel.images,
+        rating: hotel.rating,
+        reviewCount: hotel.reviewCount,
+        distance: hotel.distance,
+      };
     });
-    
-    // Build tiers from real hotel data
-    const mappedTiers: HotelTier[] = [];
-    
-    (['3-star', '4-star', '5-star'] as const).forEach((tier) => {
-      const tieredHotels = tierMap[tier];
-      if (tieredHotels && tieredHotels.length > 0) {
-        const bestHotel = tieredHotels[0];
-        const tierLabel = tier === '3-star' ? '3★' : tier === '4-star' ? '4★' : '5★';
-        
-        mappedTiers.push({
-          tier: tierLabel,
-          name: bestHotel.name,
-          pricePerNight: bestHotel.pricePerNight,
-          totalPrice: bestHotel.totalPrice,
-          description: `${tierLabel.replace('★', '-star')} accommodation`,
-          amenities: bestHotel.amenities || ['WiFi', 'Parking'],
-          bookingUrl: bestHotel.bookingUrl,
-          imageUrl: bestHotel.imageUrl,
-        });
-      }
-    });
-    
+
     if (mappedTiers.length > 0) {
       setHotelOptions(mappedTiers);
     }
-  }, [destination, hotelResults, tsDays, setHotelOptions]);
+  }, [destination, hotelResults, setHotelOptions]);
+
 
   const handleCategoryChange = useCallback(
     (category: CategoryKey) => (value: number) => {
