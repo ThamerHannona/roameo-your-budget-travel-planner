@@ -78,7 +78,7 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights }: HotelPic
       list = list.filter(t => (t.stars ?? 0) >= s);
     }
     if (minRating > 0) list = list.filter(t => (t.rating ?? 0) >= minRating);
-    if (maxNightly > 0) list = list.filter(t => t.pricePerNight <= maxNightly);
+    if (maxNightly > 0) list = list.filter(t => t.pricePerNight <= effectiveMax);
     list.sort((a, b) => {
       if (sortBy === 'price') return a.pricePerNight - b.pricePerNight;
       if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
