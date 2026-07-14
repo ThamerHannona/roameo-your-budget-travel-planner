@@ -8,12 +8,16 @@ export interface HotelOption {
   totalPrice: number;
   rating: number;
   reviewCount: number;
+  stars: number; // 3, 4, 5
   tier: '3-star' | '4-star' | '5-star';
   amenities: string[];
   imageUrl: string;
+  images: string[];
   bookingUrl: string;
   location: string;
+  distance?: string;
 }
+
 
 export interface HotelSearchResult {
   destination: string;
