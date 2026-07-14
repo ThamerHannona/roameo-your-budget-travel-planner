@@ -231,7 +231,30 @@ serve(async (req) => {
       return jsonRes({ ok: false, error: data.error }, 422);
     }
 
-    const allHotels: SerpApiHotel[] = data.properties || [];
+    let allHotels: SerpApiHotel[] = data.properties || [];
+
+    // Follow next_page_token once to reach ~30 properties.
+    const nextToken: string | undefined = data.serpapi_pagination?.next_page_token
+      || data.pagination?.next_page_token
+      || data.next_page_token;
+    if (nextToken && allHotels.length < 25) {
+      try {
+        const page2Params = new URLSearchParams(searchParams);
+        page2Params.set('next_page_token', nextToken);
+        const page2Url = `https://serpapi.com/search.json?${page2Params}`;
+        const page2Res = await fetch(page2Url);
+        if (page2Res.ok) {
+          const page2Data = await page2Res.json();
+          const page2Hotels: SerpApiHotel[] = page2Data.properties || [];
+          allHotels = [...allHotels, ...page2Hotels].slice(0, 30);
+          console.log(`Fetched page 2, total hotels: ${allHotels.length}`);
+        } else {
+          await page2Res.text();
+        }
+      } catch (e) {
+        console.warn('Page 2 fetch failed, continuing with page 1:', e);
+      }
+    }
 
     if (allHotels.length === 0) {
       return jsonRes({
@@ -245,12 +268,22 @@ serve(async (req) => {
     const searchUrl = data.search_metadata?.google_hotels_url ||
       `https://www.google.com/travel/hotels?q=${encodeURIComponent(q)}`;
 
-    // Normalize results
+    // Normalize results with enriched fields
     const results = allHotels.map((hotel) => {
       const pricePerNight = hotel.rate_per_night?.extracted_lowest ||
         (hotel.total_rate?.extracted_lowest ? Math.round(hotel.total_rate.extracted_lowest / nights) : null);
       const totalPrice = hotel.total_rate?.extracted_lowest ||
         (pricePerNight ? pricePerNight * nights : null);
+
+      const images = (hotel.images || [])
+        .map(img => img.thumbnail || img.original_image)
+        .filter((u): u is string => !!u)
+        .slice(0, 5);
+      const stars = parseStars(hotel);
+      const nearest = hotel.nearby_places?.[0];
+      const distance = nearest
+        ? `${nearest.name}${nearest.transportations?.[0]?.duration ? ` · ${nearest.transportations[0].duration}` : ''}`
+        : null;
 
       return {
         name: hotel.name || 'Unknown Hotel',
@@ -259,10 +292,13 @@ serve(async (req) => {
         rate_type: hotel.rate_per_night?.extracted_lowest ? 'night' : (hotel.total_rate?.extracted_lowest ? 'total' : null),
         rating: hotel.overall_rating ?? null,
         reviews: hotel.reviews ?? null,
+        stars,
         address: hotel.type || null,
-        thumbnail: hotel.images?.[0]?.thumbnail || hotel.images?.[0]?.original_image || null,
+        distance,
+        thumbnail: images[0] || null,
+        images,
         link: hotel.link || searchUrl,
-        amenities: hotel.amenities?.slice(0, 6) || [],
+        amenities: hotel.amenities?.slice(0, 8) || [],
         pricePerNight: pricePerNight ?? null,
         totalPrice: totalPrice ? Math.round(totalPrice) : null,
       };
@@ -277,6 +313,7 @@ serve(async (req) => {
       totalFound: allHotels.length,
       nights,
     }, 200);
+
 
   } catch (error) {
     console.error('Hotel search error:', error);
