@@ -98,10 +98,20 @@ interface SerpApiHotel {
   overall_rating?: number;
   reviews?: number;
   type?: string;
+  hotel_class?: string; // e.g. "4-star hotel"
+  extracted_hotel_class?: number; // e.g. 4
   amenities?: string[];
   images?: Array<{ thumbnail?: string; original_image?: string }>;
   gps_coordinates?: { latitude: number; longitude: number };
+  nearby_places?: Array<{ name: string; transportations?: Array<{ type: string; duration: string }> }>;
 }
+
+function parseStars(h: SerpApiHotel): number | null {
+  if (typeof h.extracted_hotel_class === 'number') return h.extracted_hotel_class;
+  const m = h.hotel_class?.match(/(\d)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
 
 function jsonRes(body: Record<string, unknown>, status: number) {
   return new Response(JSON.stringify(body), {
