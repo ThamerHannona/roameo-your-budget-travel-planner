@@ -515,13 +515,13 @@ export default function RealTimeBudgetAllocation() {
                 )}
               </div>
               
-              <HotelTierSelector
+              <HotelPicker
                 tiers={constraints.hotels.tiers}
                 selectedPrice={constraints.hotels.current}
                 onSelect={handleCategoryChange('hotels')}
-                totalBudget={destinationBudget.totalBudget}
                 nights={realNights}
               />
+
             </motion.div>
 
             {/* Category Sliders */}
