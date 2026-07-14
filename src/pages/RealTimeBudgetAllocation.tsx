@@ -12,9 +12,10 @@ import {
   FeedbackPanel, 
   BudgetPresets,
   ComparisonView,
-  FlightTierSelector,
-  HotelTierSelector,
+  FlightPicker,
+  HotelPicker,
 } from '@/components/budgetAllocation';
+
 import { PaywallModal } from '@/components/paywall';
 import { useBudgetConstraintsStore } from '@/stores/budgetConstraintsStore';
 import { useTripSearchStore } from '@/stores/tripSearchStore';
