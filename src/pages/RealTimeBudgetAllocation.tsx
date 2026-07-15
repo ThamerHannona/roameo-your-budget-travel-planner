@@ -479,12 +479,14 @@ export default function RealTimeBudgetAllocation() {
                 )}
               </div>
               
-              <FlightPicker
-                options={constraints.flights.options}
-                selectedPrice={constraints.flights.current}
-                onSelect={handleCategoryChange('flights')}
-                travelers={tripSearch.travelers}
-              />
+              <div id="flights-section" className="scroll-mt-24">
+                <FlightPicker
+                  options={constraints.flights.options}
+                  selectedPrice={constraints.flights.current}
+                  onSelect={handleCategoryChange('flights')}
+                  travelers={tripSearch.travelers}
+                />
+              </div>
 
             </motion.div>
 
