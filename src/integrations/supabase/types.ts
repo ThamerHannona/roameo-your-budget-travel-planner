@@ -14,7 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      trip_items: {
+        Row: {
+          created_at: string
+          currency: string
+          external_id: string | null
+          id: string
+          item_type: Database["public"]["Enums"]["trip_item_type"]
+          meta: Json
+          price: number
+          provider: string | null
+          searched_at: string
+          title: string | null
+          trip_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          external_id?: string | null
+          id?: string
+          item_type: Database["public"]["Enums"]["trip_item_type"]
+          meta?: Json
+          price?: number
+          provider?: string | null
+          searched_at?: string
+          title?: string | null
+          trip_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          external_id?: string | null
+          id?: string
+          item_type?: Database["public"]["Enums"]["trip_item_type"]
+          meta?: Json
+          price?: number
+          provider?: string | null
+          searched_at?: string
+          title?: string | null
+          trip_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_items_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trips: {
+        Row: {
+          budget_total: number
+          created_at: string
+          currency: string
+          destination: string | null
+          end_date: string | null
+          id: string
+          origin: string | null
+          split_lodging: number
+          split_other: number
+          split_transport: number
+          start_date: string | null
+          travelers: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          budget_total?: number
+          created_at?: string
+          currency?: string
+          destination?: string | null
+          end_date?: string | null
+          id?: string
+          origin?: string | null
+          split_lodging?: number
+          split_other?: number
+          split_transport?: number
+          start_date?: string | null
+          travelers?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          budget_total?: number
+          created_at?: string
+          currency?: string
+          destination?: string | null
+          end_date?: string | null
+          id?: string
+          origin?: string | null
+          split_lodging?: number
+          split_other?: number
+          split_transport?: number
+          start_date?: string | null
+          travelers?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +129,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      trip_item_type: "flight" | "hotel" | "activity"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +256,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      trip_item_type: ["flight", "hotel", "activity"],
+    },
   },
 } as const
