@@ -21,18 +21,20 @@ export async function addTripItem(input: TripItemInput) {
 
   const { data, error } = await supabase
     .from("trip_items")
-    .insert({
-      trip_id: input.trip_id,
-      user_id: uid,
-      item_type: input.item_type,
-      provider: input.provider,
-      external_id: input.external_id,
-      title: input.title,
-      price: input.price,
-      currency: input.currency ?? "USD",
-      meta: input.meta ?? {},
-      searched_at: new Date().toISOString(),
-    })
+    .insert([
+      {
+        trip_id: input.trip_id,
+        user_id: uid,
+        item_type: input.item_type,
+        provider: input.provider,
+        external_id: input.external_id,
+        title: input.title,
+        price: input.price,
+        currency: input.currency ?? "USD",
+        meta: (input.meta ?? {}) as never,
+        searched_at: new Date().toISOString(),
+      },
+    ])
     .select()
     .single();
   if (error) throw error;
