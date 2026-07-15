@@ -89,6 +89,9 @@ export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1, 
     if (maxStops === 'nonstop') list = list.filter(o => o.stops === 0);
     else if (maxStops === 'onestop') list = list.filter(o => o.stops <= 1);
     if (airlineFilter !== 'all') list = list.filter(o => o.airline === airlineFilter);
+    if (withinBudget && transportCap && transportCap > 0) {
+      list = list.filter(o => o.price <= transportCap);
+    }
     if (windowFilter !== 'any') {
       list = list.filter(o => {
         const h = parseHour(o.departureTime);
@@ -107,7 +110,15 @@ export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1, 
       return ad - bd;
     });
     return list;
-  }, [options, sortBy, maxStops, windowFilter, airlineFilter]);
+  }, [options, sortBy, maxStops, windowFilter, airlineFilter, withinBudget, transportCap]);
+
+  // Detect: cheapest flight exceeds transport cap → nothing fits
+  const cheapestPrice = useMemo(
+    () => (options.length ? Math.min(...options.map(o => o.price)) : 0),
+    [options]
+  );
+  const noneFitBudget = !!transportCap && transportCap > 0 && options.length > 0 && cheapestPrice > transportCap;
+
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
