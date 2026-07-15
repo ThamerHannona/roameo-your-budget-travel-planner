@@ -517,12 +517,14 @@ export default function RealTimeBudgetAllocation() {
                 )}
               </div>
               
-              <HotelPicker
-                tiers={constraints.hotels.tiers}
-                selectedPrice={constraints.hotels.current}
-                onSelect={handleCategoryChange('hotels')}
-                nights={realNights}
-              />
+              <div id="hotels-section" className="scroll-mt-24">
+                <HotelPicker
+                  tiers={constraints.hotels.tiers}
+                  selectedPrice={constraints.hotels.current}
+                  onSelect={handleCategoryChange('hotels')}
+                  nights={realNights}
+                />
+              </div>
 
             </motion.div>
 
