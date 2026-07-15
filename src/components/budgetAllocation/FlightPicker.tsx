@@ -19,7 +19,10 @@ interface FlightPickerProps {
   selectedPrice: number;
   onSelect: (price: number) => void;
   travelers?: number;
+  /** Optional transport budget cap (total across travelers). Enables "within budget" filter. */
+  transportCap?: number;
 }
+
 
 type SortKey = 'price' | 'duration' | 'stops';
 type StopsFilter = 'any' | 'nonstop' | 'onestop';
