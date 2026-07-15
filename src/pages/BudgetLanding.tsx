@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Compass, ArrowRight, Users } from 'lucide-react';
+import { Compass, ArrowRight, Users, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/Logo';
+import { CitySpecificPlannerModal } from '@/components/planner/CitySpecificPlannerModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   AnimatedGlobe,
