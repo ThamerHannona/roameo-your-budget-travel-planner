@@ -67,12 +67,14 @@ function deriveTierIds(opts: FlightOption[]): { budget?: string; recommended?: s
   };
 }
 
-export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1 }: FlightPickerProps) {
+export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1, transportCap }: FlightPickerProps) {
   const [sortBy, setSortBy] = useState<SortKey>('price');
   const [maxStops, setMaxStops] = useState<StopsFilter>('any');
   const [windowFilter, setWindowFilter] = useState<WindowFilter>('any');
   const [airlineFilter, setAirlineFilter] = useState<string>('all');
+  const [withinBudget, setWithinBudget] = useState<boolean>(!!transportCap);
   const scrollRef = useRef<HTMLDivElement>(null);
+
 
   const airlines = useMemo(() => {
     const set = new Set<string>();
