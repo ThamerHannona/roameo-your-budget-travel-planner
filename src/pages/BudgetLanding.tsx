@@ -171,6 +171,8 @@ const BudgetLanding = () => {
           </motion.div>
         </main>
       </div>
+
+      <CitySpecificPlannerModal open={plannerOpen} onOpenChange={setPlannerOpen} />
     </div>
   );
 };
