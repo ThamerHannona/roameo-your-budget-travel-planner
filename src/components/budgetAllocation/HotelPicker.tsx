@@ -209,16 +209,27 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights, lodgingCap
           />
           <span className="text-xs font-medium tabular-nums">${maxNightly || priceRange.max}</span>
         </div>
-        {activeFiltersCount > 0 && (
+        {lodgingCap && lodgingCap > 0 && (
+          <Button
+            variant={withinBudget ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setWithinBudget(v => !v)}
+          >
+            Under ${lodgingCap.toLocaleString()} total
+          </Button>
+        )}
+        {(activeFiltersCount > 0 || withinBudget) && (
           <Button
             variant="ghost"
             size="sm"
             className="h-8 text-xs"
-            onClick={() => { setStarFilter('any'); setMinRating(0); setMaxNightly(priceRange.max); }}
+            onClick={() => { setStarFilter('any'); setMinRating(0); setMaxNightly(priceRange.max); setWithinBudget(false); }}
           >
             <X className="h-3 w-3 mr-1" /> Clear
           </Button>
         )}
+
       </div>
 
       {/* Virtualized card list */}
