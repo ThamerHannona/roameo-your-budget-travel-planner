@@ -64,7 +64,7 @@ export default function Discover() {
   const [flexibilityModalOpen, setFlexibilityModalOpen] = useState(false);
   const [selectedFlexDestination, setSelectedFlexDestination] = useState<DestinationMatch | null>(null);
   const [hasSearchedFlights, setHasSearchedFlights] = useState(false);
-  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('list');
   
   // Auto-fetch real flight data when the page loads
   useEffect(() => {
