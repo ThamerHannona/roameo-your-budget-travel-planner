@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Compass, ArrowRight, Users } from 'lucide-react';
+import { Compass, ArrowRight, Users, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/Logo';
+import { CitySpecificPlannerModal } from '@/components/planner/CitySpecificPlannerModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   AnimatedGlobe,
@@ -22,6 +23,7 @@ const BudgetLanding = () => {
   const navigate = useNavigate();
   const store = useTripSearchStore();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [plannerOpen, setPlannerOpen] = useState(false);
 
   const budgetPerDay = getBudgetPerDay(store.budget, store.days);
 
@@ -78,6 +80,19 @@ const BudgetLanding = () => {
             <p className="text-lg text-muted-foreground max-w-xl mx-auto">
               Enter your budget and we'll discover every destination you can afford.
             </p>
+
+            <div className="mt-6 flex items-center justify-center gap-3 text-sm">
+              <span className="text-muted-foreground">Already know where you're going?</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPlannerOpen(true)}
+                className="gap-2 rounded-full border-primary/30 hover:border-primary hover:bg-primary/5"
+              >
+                <MapPin className="h-4 w-4" />
+                Plan a specific or multi-city trip
+              </Button>
+            </div>
           </motion.div>
 
           {/* Form */}
@@ -156,6 +171,8 @@ const BudgetLanding = () => {
           </motion.div>
         </main>
       </div>
+
+      <CitySpecificPlannerModal open={plannerOpen} onOpenChange={setPlannerOpen} />
     </div>
   );
 };
