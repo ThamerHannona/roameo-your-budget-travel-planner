@@ -168,9 +168,34 @@ export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1, 
           <p className="text-xs text-muted-foreground">
             {filtered.length} of {options.length} options
             {travelers > 1 && ` · prices for ${travelers} travelers`}
+            {transportCap ? ` · flight budget $${transportCap.toLocaleString()}` : ''}
           </p>
         </div>
       </div>
+
+      {noneFitBudget && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4">
+          <div className="flex items-start gap-3">
+            <Plane className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-foreground">
+                No flights fit your transport budget
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Cheapest option is <span className="font-semibold text-foreground">${cheapestPrice.toLocaleString()}</span> vs
+                cap of <span className="font-semibold text-foreground">${transportCap!.toLocaleString()}</span>.
+                Try shifting dates ±3 days, another nearby airport, fewer travelers, or increase your budget.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => setWithinBudget(false)}>
+                  Show all flights anyway
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Highlight strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
