@@ -17,7 +17,14 @@ export function MapDestinationCard({
   onClose,
   onSelect,
 }: MapDestinationCardProps) {
+  const navigate = useNavigate();
+  const setDestination = useSelectedDestinationStore((s) => s.setDestination);
   const savingsPercent = Math.round((destination.budgetDelta / destination.estimatedTotalCost) * 100);
+
+  const goToSection = (hash: 'flights-section' | 'hotels-section') => {
+    setDestination(destination);
+    navigate(`/trip/${destination.id}/budget#${hash}`);
+  };
   
   return (
     <motion.div
