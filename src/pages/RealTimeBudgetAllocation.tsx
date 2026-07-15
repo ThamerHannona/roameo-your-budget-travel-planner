@@ -358,6 +358,21 @@ export default function RealTimeBudgetAllocation() {
   const hasLiveHotels = constraints.hotels.tiers.length > 0 && !hotelsMockData && !hotelsLoading;
   const missingDeparture = !tripSearch.departureCity;
 
+  // Budget envelope: enforce 40/35/25 caps so filters can gate live results.
+  const envelope = useMemo(
+    () => computeBudgetEnvelope(destinationBudget.totalBudget),
+    [destinationBudget.totalBudget]
+  );
+  const lodgingCap = useMemo(() => {
+    // If a flight is selected, lodging cap = whatever's left after flight + activities/other cap.
+    // Otherwise use the raw lodging envelope cap.
+    if (selectedFlight?.price) {
+      return remainingLodgingAfterFlight(envelope, selectedFlight.price);
+    }
+    return envelope.lodgingCap;
+  }, [envelope, selectedFlight]);
+
+
   if (!destination) {
     return (
       <div className="min-h-screen flex items-center justify-center">
