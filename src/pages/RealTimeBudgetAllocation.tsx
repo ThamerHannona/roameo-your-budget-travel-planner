@@ -27,6 +27,8 @@ import { matchDestinations } from '@/lib/destinationMatcher';
 import { destinations } from '@/data/destinations';
 import { budgetPresets, generateBudgetConstraints } from '@/data/mockBudgetData';
 import type { CategoryKey, FlightOption, HotelTier } from '@/types/budgetConstraints';
+import { computeBudgetEnvelope, remainingLodgingAfterFlight } from '@/lib/budget';
+
 import type { DestinationMatch } from '@/types/destination';
 import { useToast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
