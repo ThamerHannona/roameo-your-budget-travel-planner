@@ -34,7 +34,21 @@ import confetti from 'canvas-confetti';
 export default function RealTimeBudgetAllocation() {
   const { destinationId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  // Scroll to #flights-section or #hotels-section when arriving with a hash.
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.replace('#', '');
+    const scroll = () => {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    // Wait a tick for lazy sections to mount.
+    const t = window.setTimeout(scroll, 400);
+    return () => window.clearTimeout(t);
+  }, [location.hash]);
   const [showComparison, setShowComparison] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [currentPreset, setCurrentPreset] = useState<keyof typeof budgetPresets | null>(null);
