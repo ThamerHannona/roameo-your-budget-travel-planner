@@ -43,12 +43,14 @@ function pickPercentile<T>(arr: T[], p: number): T | undefined {
   return arr[idx];
 }
 
-export function HotelPicker({ tiers, selectedPrice, onSelect, nights }: HotelPickerProps) {
+export function HotelPicker({ tiers, selectedPrice, onSelect, nights, lodgingCap }: HotelPickerProps) {
   const [sortBy, setSortBy] = useState<SortKey>('price');
   const [starFilter, setStarFilter] = useState<StarFilter>('any');
   const [minRating, setMinRating] = useState<number>(0);
   const [maxNightly, setMaxNightly] = useState<number>(0);
+  const [withinBudget, setWithinBudget] = useState<boolean>(!!lodgingCap);
   const scrollRef = useRef<HTMLDivElement>(null);
+
 
   const priceRange = useMemo(() => {
     if (!tiers.length) return { min: 0, max: 1000 };
