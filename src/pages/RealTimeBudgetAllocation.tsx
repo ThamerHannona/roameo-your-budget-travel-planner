@@ -542,8 +542,10 @@ export default function RealTimeBudgetAllocation() {
                   selectedPrice={constraints.flights.current}
                   onSelect={handleCategoryChange('flights')}
                   travelers={tripSearch.travelers}
+                  transportCap={envelope.transportCap}
                 />
               </div>
+
 
             </motion.div>
 
