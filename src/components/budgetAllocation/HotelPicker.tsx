@@ -84,13 +84,17 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights, lodgingCap
     }
     if (minRating > 0) list = list.filter(t => (t.rating ?? 0) >= minRating);
     if (maxNightly > 0) list = list.filter(t => t.pricePerNight <= effectiveMax);
+    if (withinBudget && lodgingCap && lodgingCap > 0) {
+      list = list.filter(t => t.totalPrice <= lodgingCap);
+    }
     list.sort((a, b) => {
       if (sortBy === 'price') return a.pricePerNight - b.pricePerNight;
       if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
       return bestValueScore(b) - bestValueScore(a);
     });
     return list;
-  }, [tiers, sortBy, starFilter, minRating, maxNightly]);
+  }, [tiers, sortBy, starFilter, minRating, maxNightly, withinBudget, lodgingCap, effectiveMax]);
+
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
