@@ -19,7 +19,10 @@ interface HotelPickerProps {
   selectedPrice: number;
   onSelect: (totalPrice: number) => void;
   nights: number;
+  /** Remaining budget for lodging (total for all nights). Enables "within budget" filter. */
+  lodgingCap?: number;
 }
+
 
 type SortKey = 'price' | 'rating' | 'value';
 type StarFilter = 'any' | '3' | '4' | '5';
