@@ -395,12 +395,10 @@ export default function Discover() {
         
         {/* Main Layout */}
         <div className="flex gap-6">
-          {/* Sidebar (Desktop) - only show in list view */}
-          {viewMode === 'list' && (
-            <div className="hidden lg:block w-72 shrink-0">
-              {sidebarContent}
-            </div>
-          )}
+          {/* Sidebar (Desktop) - filters apply to both List and Map views */}
+          <div className="hidden lg:block w-72 shrink-0">
+            {sidebarContent}
+          </div>
           
           {/* Content Area */}
           <div className="flex-1">
