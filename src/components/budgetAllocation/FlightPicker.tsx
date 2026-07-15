@@ -263,16 +263,27 @@ export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1, 
             </SelectContent>
           </Select>
         )}
-        {activeFiltersCount > 0 && (
+        {transportCap && transportCap > 0 && (
+          <Button
+            variant={withinBudget ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setWithinBudget(v => !v)}
+          >
+            Under ${transportCap.toLocaleString()}
+          </Button>
+        )}
+        {(activeFiltersCount > 0 || withinBudget) && (
           <Button
             variant="ghost"
             size="sm"
             className="h-8 text-xs"
-            onClick={() => { setMaxStops('any'); setWindowFilter('any'); setAirlineFilter('all'); }}
+            onClick={() => { setMaxStops('any'); setWindowFilter('any'); setAirlineFilter('all'); setWithinBudget(false); }}
           >
             <X className="h-3 w-3 mr-1" /> Clear
           </Button>
         )}
+
       </div>
 
       {/* Virtualized list */}
