@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Lock, RotateCcw, ChevronDown, Sparkles, Wifi, WifiOff, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,21 @@ import confetti from 'canvas-confetti';
 export default function RealTimeBudgetAllocation() {
   const { destinationId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+
+  // Scroll to #flights-section or #hotels-section when arriving with a hash.
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.replace('#', '');
+    const scroll = () => {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    // Wait a tick for lazy sections to mount.
+    const t = window.setTimeout(scroll, 400);
+    return () => window.clearTimeout(t);
+  }, [location.hash]);
   const [showComparison, setShowComparison] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [currentPreset, setCurrentPreset] = useState<keyof typeof budgetPresets | null>(null);
@@ -479,12 +493,14 @@ export default function RealTimeBudgetAllocation() {
                 )}
               </div>
               
-              <FlightPicker
-                options={constraints.flights.options}
-                selectedPrice={constraints.flights.current}
-                onSelect={handleCategoryChange('flights')}
-                travelers={tripSearch.travelers}
-              />
+              <div id="flights-section" className="scroll-mt-24">
+                <FlightPicker
+                  options={constraints.flights.options}
+                  selectedPrice={constraints.flights.current}
+                  onSelect={handleCategoryChange('flights')}
+                  travelers={tripSearch.travelers}
+                />
+              </div>
 
             </motion.div>
 
@@ -515,12 +531,14 @@ export default function RealTimeBudgetAllocation() {
                 )}
               </div>
               
-              <HotelPicker
-                tiers={constraints.hotels.tiers}
-                selectedPrice={constraints.hotels.current}
-                onSelect={handleCategoryChange('hotels')}
-                nights={realNights}
-              />
+              <div id="hotels-section" className="scroll-mt-24">
+                <HotelPicker
+                  tiers={constraints.hotels.tiers}
+                  selectedPrice={constraints.hotels.current}
+                  onSelect={handleCategoryChange('hotels')}
+                  nights={realNights}
+                />
+              </div>
 
             </motion.div>
 

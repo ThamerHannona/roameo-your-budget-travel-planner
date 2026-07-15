@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion';
-import { X, Plane, Hotel, MapPin, TrendingUp, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, Plane, Hotel, MapPin, TrendingUp, Star, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DestinationMatch } from '@/types/destination';
+import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 
 interface MapDestinationCardProps {
   destination: DestinationMatch;
@@ -15,7 +17,14 @@ export function MapDestinationCard({
   onClose,
   onSelect,
 }: MapDestinationCardProps) {
+  const navigate = useNavigate();
+  const setDestination = useSelectedDestinationStore((s) => s.setDestination);
   const savingsPercent = Math.round((destination.budgetDelta / destination.estimatedTotalCost) * 100);
+
+  const goToSection = (hash: 'flights-section' | 'hotels-section') => {
+    setDestination(destination);
+    navigate(`/trip/${destination.id}/budget#${hash}`);
+  };
   
   return (
     <motion.div
@@ -65,27 +74,43 @@ export function MapDestinationCard({
       
       {/* Content */}
       <div className="p-4 space-y-4">
-        {/* Price breakdown */}
+        {/* Price breakdown — click to open live flight/hotel results */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-2 text-sm">
+          <button
+            type="button"
+            onClick={() => goToSection('flights-section')}
+            className="group flex items-center gap-2 rounded-lg border border-border/60 p-2 text-left text-sm transition-colors hover:border-primary hover:bg-primary/5"
+            aria-label="View flight results for this destination"
+          >
             <div className="p-1.5 rounded-lg bg-primary/10">
               <Plane className="h-4 w-4 text-primary" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Flights</p>
-              <p className="font-semibold">${destination.flightCost.toLocaleString()}</p>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                Flights
+                <ArrowRight className="h-3 w-3 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
+              </p>
+              <p className="font-semibold">from ${destination.flightCost.toLocaleString()}</p>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-2 text-sm">
+          </button>
+
+          <button
+            type="button"
+            onClick={() => goToSection('hotels-section')}
+            className="group flex items-center gap-2 rounded-lg border border-border/60 p-2 text-left text-sm transition-colors hover:border-primary hover:bg-primary/5"
+            aria-label="View hotel results for this destination"
+          >
             <div className="p-1.5 rounded-lg bg-primary/10">
               <Hotel className="h-4 w-4 text-primary" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Hotels</p>
-              <p className="font-semibold">${destination.accommodationCost.toLocaleString()}</p>
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                Hotels
+                <ArrowRight className="h-3 w-3 opacity-0 -translate-x-1 transition-all group-hover:opacity-100 group-hover:translate-x-0" />
+              </p>
+              <p className="font-semibold">from ${destination.accommodationCost.toLocaleString()}</p>
             </div>
-          </div>
+          </button>
         </div>
         
         {/* Total */}
