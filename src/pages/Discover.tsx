@@ -64,7 +64,19 @@ export default function Discover() {
   const [flexibilityModalOpen, setFlexibilityModalOpen] = useState(false);
   const [selectedFlexDestination, setSelectedFlexDestination] = useState<DestinationMatch | null>(null);
   const [hasSearchedFlights, setHasSearchedFlights] = useState(false);
-  const [viewMode, setViewMode] = useState<'map' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'map' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'list';
+    const saved = window.localStorage.getItem('roamio-discover-view');
+    return saved === 'map' || saved === 'list' ? saved : 'list';
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('roamio-discover-view', viewMode);
+    } catch {
+      /* ignore */
+    }
+  }, [viewMode]);
   
   // Auto-fetch real flight data when the page loads
   useEffect(() => {
