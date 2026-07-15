@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion';
-import { X, Plane, Hotel, MapPin, TrendingUp, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, Plane, Hotel, MapPin, TrendingUp, Star, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DestinationMatch } from '@/types/destination';
+import { useSelectedDestinationStore } from '@/stores/selectedDestinationStore';
 
 interface MapDestinationCardProps {
   destination: DestinationMatch;
