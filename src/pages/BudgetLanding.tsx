@@ -80,6 +80,19 @@ const BudgetLanding = () => {
             <p className="text-lg text-muted-foreground max-w-xl mx-auto">
               Enter your budget and we'll discover every destination you can afford.
             </p>
+
+            <div className="mt-6 flex items-center justify-center gap-3 text-sm">
+              <span className="text-muted-foreground">Already know where you're going?</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPlannerOpen(true)}
+                className="gap-2 rounded-full border-primary/30 hover:border-primary hover:bg-primary/5"
+              >
+                <MapPin className="h-4 w-4" />
+                Plan a specific or multi-city trip
+              </Button>
+            </div>
           </motion.div>
 
           {/* Form */}
