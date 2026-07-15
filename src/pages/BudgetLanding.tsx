@@ -23,6 +23,7 @@ const BudgetLanding = () => {
   const navigate = useNavigate();
   const store = useTripSearchStore();
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [plannerOpen, setPlannerOpen] = useState(false);
 
   const budgetPerDay = getBudgetPerDay(store.budget, store.days);
 
