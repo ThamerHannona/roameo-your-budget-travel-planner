@@ -19,7 +19,10 @@ interface HotelPickerProps {
   selectedPrice: number;
   onSelect: (totalPrice: number) => void;
   nights: number;
+  /** Remaining budget for lodging (total for all nights). Enables "within budget" filter. */
+  lodgingCap?: number;
 }
+
 
 type SortKey = 'price' | 'rating' | 'value';
 type StarFilter = 'any' | '3' | '4' | '5';
@@ -40,12 +43,14 @@ function pickPercentile<T>(arr: T[], p: number): T | undefined {
   return arr[idx];
 }
 
-export function HotelPicker({ tiers, selectedPrice, onSelect, nights }: HotelPickerProps) {
+export function HotelPicker({ tiers, selectedPrice, onSelect, nights, lodgingCap }: HotelPickerProps) {
   const [sortBy, setSortBy] = useState<SortKey>('price');
   const [starFilter, setStarFilter] = useState<StarFilter>('any');
   const [minRating, setMinRating] = useState<number>(0);
   const [maxNightly, setMaxNightly] = useState<number>(0);
+  const [withinBudget, setWithinBudget] = useState<boolean>(!!lodgingCap);
   const scrollRef = useRef<HTMLDivElement>(null);
+
 
   const priceRange = useMemo(() => {
     if (!tiers.length) return { min: 0, max: 1000 };
@@ -79,13 +84,17 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights }: HotelPic
     }
     if (minRating > 0) list = list.filter(t => (t.rating ?? 0) >= minRating);
     if (maxNightly > 0) list = list.filter(t => t.pricePerNight <= effectiveMax);
+    if (withinBudget && lodgingCap && lodgingCap > 0) {
+      list = list.filter(t => t.totalPrice <= lodgingCap);
+    }
     list.sort((a, b) => {
       if (sortBy === 'price') return a.pricePerNight - b.pricePerNight;
       if (sortBy === 'rating') return (b.rating || 0) - (a.rating || 0);
       return bestValueScore(b) - bestValueScore(a);
     });
     return list;
-  }, [tiers, sortBy, starFilter, minRating, maxNightly]);
+  }, [tiers, sortBy, starFilter, minRating, maxNightly, withinBudget, lodgingCap, effectiveMax]);
+
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
@@ -200,16 +209,27 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights }: HotelPic
           />
           <span className="text-xs font-medium tabular-nums">${maxNightly || priceRange.max}</span>
         </div>
-        {activeFiltersCount > 0 && (
+        {lodgingCap && lodgingCap > 0 && (
+          <Button
+            variant={withinBudget ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setWithinBudget(v => !v)}
+          >
+            Under ${lodgingCap.toLocaleString()} total
+          </Button>
+        )}
+        {(activeFiltersCount > 0 || withinBudget) && (
           <Button
             variant="ghost"
             size="sm"
             className="h-8 text-xs"
-            onClick={() => { setStarFilter('any'); setMinRating(0); setMaxNightly(priceRange.max); }}
+            onClick={() => { setStarFilter('any'); setMinRating(0); setMaxNightly(priceRange.max); setWithinBudget(false); }}
           >
             <X className="h-3 w-3 mr-1" /> Clear
           </Button>
         )}
+
       </div>
 
       {/* Virtualized card list */}

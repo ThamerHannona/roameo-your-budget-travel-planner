@@ -19,7 +19,10 @@ interface FlightPickerProps {
   selectedPrice: number;
   onSelect: (price: number) => void;
   travelers?: number;
+  /** Optional transport budget cap (total across travelers). Enables "within budget" filter. */
+  transportCap?: number;
 }
+
 
 type SortKey = 'price' | 'duration' | 'stops';
 type StopsFilter = 'any' | 'nonstop' | 'onestop';
@@ -64,12 +67,14 @@ function deriveTierIds(opts: FlightOption[]): { budget?: string; recommended?: s
   };
 }
 
-export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1 }: FlightPickerProps) {
+export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1, transportCap }: FlightPickerProps) {
   const [sortBy, setSortBy] = useState<SortKey>('price');
   const [maxStops, setMaxStops] = useState<StopsFilter>('any');
   const [windowFilter, setWindowFilter] = useState<WindowFilter>('any');
   const [airlineFilter, setAirlineFilter] = useState<string>('all');
+  const [withinBudget, setWithinBudget] = useState<boolean>(!!transportCap);
   const scrollRef = useRef<HTMLDivElement>(null);
+
 
   const airlines = useMemo(() => {
     const set = new Set<string>();
@@ -84,6 +89,9 @@ export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1 }
     if (maxStops === 'nonstop') list = list.filter(o => o.stops === 0);
     else if (maxStops === 'onestop') list = list.filter(o => o.stops <= 1);
     if (airlineFilter !== 'all') list = list.filter(o => o.airline === airlineFilter);
+    if (withinBudget && transportCap && transportCap > 0) {
+      list = list.filter(o => o.price <= transportCap);
+    }
     if (windowFilter !== 'any') {
       list = list.filter(o => {
         const h = parseHour(o.departureTime);
@@ -102,7 +110,15 @@ export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1 }
       return ad - bd;
     });
     return list;
-  }, [options, sortBy, maxStops, windowFilter, airlineFilter]);
+  }, [options, sortBy, maxStops, windowFilter, airlineFilter, withinBudget, transportCap]);
+
+  // Detect: cheapest flight exceeds transport cap → nothing fits
+  const cheapestPrice = useMemo(
+    () => (options.length ? Math.min(...options.map(o => o.price)) : 0),
+    [options]
+  );
+  const noneFitBudget = !!transportCap && transportCap > 0 && options.length > 0 && cheapestPrice > transportCap;
+
 
   const virtualizer = useVirtualizer({
     count: filtered.length,
@@ -152,9 +168,34 @@ export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1 }
           <p className="text-xs text-muted-foreground">
             {filtered.length} of {options.length} options
             {travelers > 1 && ` · prices for ${travelers} travelers`}
+            {transportCap ? ` · flight budget $${transportCap.toLocaleString()}` : ''}
           </p>
         </div>
       </div>
+
+      {noneFitBudget && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4">
+          <div className="flex items-start gap-3">
+            <Plane className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-foreground">
+                No flights fit your transport budget
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Cheapest option is <span className="font-semibold text-foreground">${cheapestPrice.toLocaleString()}</span> vs
+                cap of <span className="font-semibold text-foreground">${transportCap!.toLocaleString()}</span>.
+                Try shifting dates ±3 days, another nearby airport, fewer travelers, or increase your budget.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => setWithinBudget(false)}>
+                  Show all flights anyway
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Highlight strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -222,16 +263,27 @@ export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1 }
             </SelectContent>
           </Select>
         )}
-        {activeFiltersCount > 0 && (
+        {transportCap && transportCap > 0 && (
+          <Button
+            variant={withinBudget ? 'default' : 'outline'}
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => setWithinBudget(v => !v)}
+          >
+            Under ${transportCap.toLocaleString()}
+          </Button>
+        )}
+        {(activeFiltersCount > 0 || withinBudget) && (
           <Button
             variant="ghost"
             size="sm"
             className="h-8 text-xs"
-            onClick={() => { setMaxStops('any'); setWindowFilter('any'); setAirlineFilter('all'); }}
+            onClick={() => { setMaxStops('any'); setWindowFilter('any'); setAirlineFilter('all'); setWithinBudget(false); }}
           >
             <X className="h-3 w-3 mr-1" /> Clear
           </Button>
         )}
+
       </div>
 
       {/* Virtualized list */}

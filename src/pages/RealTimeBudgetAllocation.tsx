@@ -27,6 +27,8 @@ import { matchDestinations } from '@/lib/destinationMatcher';
 import { destinations } from '@/data/destinations';
 import { budgetPresets, generateBudgetConstraints } from '@/data/mockBudgetData';
 import type { CategoryKey, FlightOption, HotelTier } from '@/types/budgetConstraints';
+import { computeBudgetEnvelope, remainingLodgingAfterFlight } from '@/lib/budget';
+
 import type { DestinationMatch } from '@/types/destination';
 import { useToast } from '@/hooks/use-toast';
 import confetti from 'canvas-confetti';
@@ -356,6 +358,21 @@ export default function RealTimeBudgetAllocation() {
   const hasLiveHotels = constraints.hotels.tiers.length > 0 && !hotelsMockData && !hotelsLoading;
   const missingDeparture = !tripSearch.departureCity;
 
+  // Budget envelope: enforce 40/35/25 caps so filters can gate live results.
+  const envelope = useMemo(
+    () => computeBudgetEnvelope(destinationBudget.totalBudget),
+    [destinationBudget.totalBudget]
+  );
+  const lodgingCap = useMemo(() => {
+    // If a flight is selected, lodging cap = whatever's left after flight + activities/other cap.
+    // Otherwise use the raw lodging envelope cap.
+    if (selectedFlight?.price) {
+      return remainingLodgingAfterFlight(envelope, selectedFlight.price);
+    }
+    return envelope.lodgingCap;
+  }, [envelope, selectedFlight]);
+
+
   if (!destination) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -525,8 +542,10 @@ export default function RealTimeBudgetAllocation() {
                   selectedPrice={constraints.flights.current}
                   onSelect={handleCategoryChange('flights')}
                   travelers={tripSearch.travelers}
+                  transportCap={envelope.transportCap}
                 />
               </div>
+
 
             </motion.div>
 
@@ -563,7 +582,9 @@ export default function RealTimeBudgetAllocation() {
                   selectedPrice={constraints.hotels.current}
                   onSelect={handleCategoryChange('hotels')}
                   nights={realNights}
+                  lodgingCap={lodgingCap}
                 />
+
               </div>
 
             </motion.div>
