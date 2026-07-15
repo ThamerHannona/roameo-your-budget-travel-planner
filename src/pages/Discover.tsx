@@ -378,7 +378,12 @@ export default function Discover() {
         
         {/* View Toggle */}
         <div className="flex items-center justify-between mb-6">
-          <MapListToggle view={viewMode} onChange={setViewMode} />
+          <MapListToggle
+            view={viewMode}
+            onChange={setViewMode}
+            isLoading={flightSearch.isLoading}
+            listCount={filteredDestinations.length}
+          />
           
           {compareList.length > 0 && (
             <Button onClick={() => setShowComparison(true)} className="gap-2 md:hidden">
