@@ -113,15 +113,11 @@ export async function fetchFlightOptions(
     expandAirports = true,
   } = params;
 
-  const expandedOrigin = expandAirports ? expandAirportSearch(rawOrigin) || rawOrigin : rawOrigin;
-  const expandedDest = expandAirports ? expandAirportSearch(rawDest) || rawDest : rawDest;
-  // Prefer multi-airport (cheaper inventory); fall back to single codes if edge rejects list
-  const originCandidates = Array.from(
-    new Set([expandedOrigin, rawOrigin.split(',')[0].toUpperCase()].filter(Boolean))
-  );
-  const destCandidates = Array.from(
-    new Set([expandedDest, rawDest.split(',')[0].toUpperCase()].filter(Boolean))
-  );
+  // Edge function validates single 3-letter IATA codes only.
+  // Use the primary code; multi-airport expansion is not supported server-side.
+  const pickPrimary = (code: string) => code.split(',')[0].trim().toUpperCase();
+  const originCandidates = [pickPrimary(rawOrigin)];
+  const destCandidates = [pickPrimary(rawDest)];
 
   const resolvedParams: FlightSearchParams = {
     ...params,
