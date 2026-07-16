@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { 
-  searchFlightsForDestinations, 
+  searchFlightsForDestinations,
+  fetchFlightOptions,
   FlightSearchResult, 
   FlightOption,
   getCheapestPrice,
@@ -17,13 +18,21 @@ export interface FlightSearchState {
   hasMockData: boolean;
 }
 
+export interface FlightSearchOptions {
+  destinations?: string[];
+  /** Transport budget cap — only return fares at or under this total */
+  maxPrice?: number;
+  /** Deeper inventory (single-destination budget page) */
+  deepSearch?: boolean;
+}
+
 export interface UseFlightSearchReturn extends FlightSearchState {
   searchFlights: (
     originCity: string,
     startDate: Date,
     endDate: Date,
     travelers?: number,
-    destinations?: string[]
+    destinationsOrOptions?: string[] | FlightSearchOptions
   ) => Promise<Map<string, FlightSearchResult>>;
   getFlightPrice: (destinationCode: string, tier?: 'budget' | 'mid' | 'premium') => number | null;
   getFlightOptions: (destinationCode: string) => FlightOption[];
@@ -47,7 +56,7 @@ export function useFlightSearch(): UseFlightSearchReturn {
     startDate: Date,
     endDate: Date,
     travelers: number = 1,
-    destinations: string[] = [...CANDIDATE_DESTINATIONS]
+    destinationsOrOptions: string[] | FlightSearchOptions = [...CANDIDATE_DESTINATIONS]
   ): Promise<Map<string, FlightSearchResult>> => {
     const originCode = getAirportCode(originCity);
     
@@ -60,21 +69,47 @@ export function useFlightSearch(): UseFlightSearchReturn {
       return new Map();
     }
 
+    const opts: FlightSearchOptions = Array.isArray(destinationsOrOptions)
+      ? { destinations: destinationsOrOptions }
+      : destinationsOrOptions;
+    const destinations = opts.destinations ?? [...CANDIDATE_DESTINATIONS];
+    const maxPrice = opts.maxPrice;
+    const deepSearch = opts.deepSearch ?? false;
+
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
       const departureDate = format(startDate, 'yyyy-MM-dd');
       const returnDate = format(endDate, 'yyyy-MM-dd');
 
-      const results = await searchFlightsForDestinations(
-        originCity,
-        departureDate,
-        returnDate,
-        destinations,
-        travelers
-      );
+      let results: Map<string, FlightSearchResult>;
 
-      // Check if any results are mock data
+      // Single destination + deep search = max inventory for budget page
+      if (deepSearch && destinations.length === 1) {
+        const dest = destinations[0];
+        const one = await fetchFlightOptions({
+          origin: originCode,
+          destination: dest,
+          departureDate,
+          returnDate,
+          adults: travelers,
+          maxPrice,
+          deepSearch: true,
+          expandAirports: true,
+        });
+        results = new Map([[dest, one]]);
+      } else {
+        results = await searchFlightsForDestinations(
+          originCity,
+          departureDate,
+          returnDate,
+          destinations,
+          travelers,
+          'economy',
+          maxPrice
+        );
+      }
+
       const hasMockData = Array.from(results.values()).some(r => r.useMock);
 
       setState({
@@ -98,15 +133,19 @@ export function useFlightSearch(): UseFlightSearchReturn {
 
   const getFlightPrice = useCallback((
     destinationCode: string,
-    tier: 'budget' | 'mid' | 'premium' = 'mid'
+    tier: 'budget' | 'mid' | 'premium' = 'budget'
   ): number | null => {
     const result = state.results.get(destinationCode);
     if (!result) return null;
 
+    // Budget-first: default to cheapest, not mid-tier
+    if (tier === 'budget') {
+      return getCheapestPrice(result) || null;
+    }
+
     const flight = getFlightByTier(result, tier);
     if (flight) return flight.price;
 
-    // Fallback to cheapest
     return getCheapestPrice(result) || null;
   }, [state.results]);
 

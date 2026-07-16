@@ -166,9 +166,10 @@ export function FlightPicker({ options, selectedPrice, onSelect, travelers = 1, 
             Choose your flight
           </h3>
           <p className="text-xs text-muted-foreground">
-            {filtered.length} of {options.length} options
+            {filtered.length} of {options.length} options · best price first
             {travelers > 1 && ` · prices for ${travelers} travelers`}
-            {transportCap ? ` · flight budget $${transportCap.toLocaleString()}` : ''}
+            {transportCap ? ` · under $${transportCap.toLocaleString()}` : ''}
+            {options[0] ? ` · from $${Math.min(...options.map(o => o.price)).toLocaleString()}` : ''}
           </p>
         </div>
       </div>

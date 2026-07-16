@@ -26,6 +26,7 @@ interface HotelPickerProps {
 
 type SortKey = 'price' | 'rating' | 'value';
 type StarFilter = 'any' | '3' | '4' | '5';
+type TypeFilter = 'any' | 'hotel' | 'vacation_rental';
 
 function tierKey(h: HotelTier): string {
   return h.id || `${h.name}-${h.totalPrice}`;
@@ -46,6 +47,7 @@ function pickPercentile<T>(arr: T[], p: number): T | undefined {
 export function HotelPicker({ tiers, selectedPrice, onSelect, nights, lodgingCap }: HotelPickerProps) {
   const [sortBy, setSortBy] = useState<SortKey>('price');
   const [starFilter, setStarFilter] = useState<StarFilter>('any');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('any');
   const [minRating, setMinRating] = useState<number>(0);
   const [maxNightly, setMaxNightly] = useState<number>(0);
   const [withinBudget, setWithinBudget] = useState<boolean>(!!lodgingCap);
@@ -76,8 +78,18 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights, lodgingCap
     return { budget, comfort, luxury };
   }, [tiers]);
 
+  const rentalCount = useMemo(
+    () => tiers.filter((t) => t.propertyType === 'vacation_rental').length,
+    [tiers]
+  );
+
   const filtered = useMemo(() => {
     let list = tiers.slice();
+    if (typeFilter === 'hotel') {
+      list = list.filter((t) => (t.propertyType || 'hotel') === 'hotel');
+    } else if (typeFilter === 'vacation_rental') {
+      list = list.filter((t) => t.propertyType === 'vacation_rental');
+    }
     if (starFilter !== 'any') {
       const s = parseInt(starFilter, 10);
       list = list.filter(t => (t.stars ?? 0) >= s);
@@ -93,7 +105,7 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights, lodgingCap
       return bestValueScore(b) - bestValueScore(a);
     });
     return list;
-  }, [tiers, sortBy, starFilter, minRating, maxNightly, withinBudget, lodgingCap, effectiveMax]);
+  }, [tiers, sortBy, starFilter, typeFilter, minRating, maxNightly, withinBudget, lodgingCap, effectiveMax]);
 
 
   const virtualizer = useVirtualizer({
@@ -138,10 +150,13 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights, lodgingCap
         <div>
           <h3 className="font-semibold text-foreground flex items-center gap-2">
             <Building2 className="h-4 w-4 text-primary" />
-            Choose your hotel
+            Choose your stay
           </h3>
           <p className="text-xs text-muted-foreground">
-            {filtered.length} of {tiers.length} properties · {nights} night{nights > 1 ? 's' : ''}
+            {filtered.length} of {tiers.length} properties · lowest price first
+            {rentalCount > 0 ? ` · ${rentalCount} rentals` : ''}
+            {' '}· {nights} night{nights > 1 ? 's' : ''}
+            {tiers[0] ? ` · from $${Math.min(...tiers.map(t => t.pricePerNight)).toLocaleString()}/night` : ''}
           </p>
         </div>
       </div>
@@ -174,6 +189,14 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights, lodgingCap
             <SelectItem value="price">Sort: Price</SelectItem>
             <SelectItem value="rating">Sort: Rating</SelectItem>
             <SelectItem value="value">Sort: Best value</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as TypeFilter)}>
+          <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">Hotels + Airbnb</SelectItem>
+            <SelectItem value="hotel">Hotels only</SelectItem>
+            <SelectItem value="vacation_rental">Airbnb / rentals</SelectItem>
           </SelectContent>
         </Select>
         <Select value={starFilter} onValueChange={(v) => setStarFilter(v as StarFilter)}>
@@ -268,6 +291,11 @@ export function HotelPicker({ tiers, selectedPrice, onSelect, nights, lodgingCap
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             <p className="text-sm font-semibold text-foreground truncate">{h.name}</p>
+                            {h.propertyType === 'vacation_rental' && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 shrink-0">
+                                Airbnb-style
+                              </Badge>
+                            )}
                             {isSelected && <Check className="h-4 w-4 text-primary flex-shrink-0" />}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">

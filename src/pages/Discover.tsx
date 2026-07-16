@@ -88,18 +88,22 @@ export default function Discover() {
     if (startDate && endDate && departureCity && !hasSearchedFlights && !flightSearch.isLoading) {
       const originCode = getAirportCode(departureCity);
       if (originCode) {
-        console.log('Searching real flights from:', departureCity, '→', CANDIDATE_DESTINATIONS);
+        // Budget-first discovery: more destinations, multi-airport origins, price-sorted fares
+        console.log('Searching cheapest flights from:', departureCity, '→', CANDIDATE_DESTINATIONS.length, 'destinations');
         flightSearch.searchFlights(
           departureCity,
           startDate,
           endDate,
           tripSearch.travelers,
-          [...CANDIDATE_DESTINATIONS]
+          {
+            destinations: [...CANDIDATE_DESTINATIONS],
+            deepSearch: false,
+          }
         );
         setHasSearchedFlights(true);
       }
     }
-  }, [tripSearch.dates.start, tripSearch.dates.end, tripSearch.departureCity, tripSearch.travelers, hasSearchedFlights, flightSearch.isLoading]);
+  }, [tripSearch.dates.start, tripSearch.dates.end, tripSearch.departureCity, tripSearch.travelers, tripSearch.budget, hasSearchedFlights, flightSearch.isLoading]);
   
   // Match destinations based on user criteria + real flight data from Zustand store
   const matches = useMemo(() => {

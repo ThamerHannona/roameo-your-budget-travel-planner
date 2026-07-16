@@ -142,13 +142,21 @@ export default function FinalBooking() {
     provider: 'Google Flights',
   });
 
-  // Add hotel booking with real data
+  // Add hotel / vacation-rental booking with real data
+  const stayLabel =
+    selectedHotel?.propertyType === 'vacation_rental'
+      ? 'Vacation rental'
+      : selectedHotel?.tier
+        ? `${selectedHotel.tier} hotel`
+        : 'Hotel';
   bookingItems.push({
     id: 'hotel-stay',
     type: 'hotel',
-    name: selectedHotel ? `${selectedHotel.tier} - ${nights}-night stay` : `${nights}-night hotel stay`,
+    name: selectedHotel
+      ? `${selectedHotel.name} · ${nights}-night stay`
+      : `${nights}-night hotel stay`,
     description: selectedHotel 
-      ? `${selectedHotel.name} • ${selectedHotel.amenities.slice(0, 2).join(', ')}`
+      ? `${stayLabel} • ${selectedHotel.amenities.slice(0, 2).join(', ') || 'Bookable stay'}`
       : `${destination.name} • Various options available`,
     price: hotelCost,
     bookingUrl: selectedHotel?.bookingUrl || hotelSearchUrl,

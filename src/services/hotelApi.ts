@@ -1,6 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
 
-// Types for hotel data
+export type StayPropertyType = 'hotel' | 'vacation_rental';
+
+// Types for hotel / vacation-rental data
 export interface HotelOption {
   id: string;
   name: string;
@@ -16,8 +18,9 @@ export interface HotelOption {
   bookingUrl: string;
   location: string;
   distance?: string;
+  /** hotel = traditional lodging; vacation_rental = apartments / Airbnb-style stays */
+  propertyType: StayPropertyType;
 }
-
 
 export interface HotelSearchResult {
   destination: string;
@@ -34,11 +37,17 @@ export interface HotelSearchParams {
   checkIn: string;
   checkOut: string;
   adults?: number;
+  /** When true (default), also pull vacation rentals / apartments for Airbnb-style options */
+  includeVacationRentals?: boolean;
+  /** Max total stay price (all nights) — budget lodging cap */
+  maxPrice?: number;
+  /** Max nightly rate */
+  maxPricePerNight?: number;
 }
 
 // Cache configuration
-const CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour
-const CACHE_PREFIX = 'hotel_search_';
+const CACHE_DURATION_MS = 45 * 60 * 1000;
+const CACHE_PREFIX = 'hotel_search_v3_';
 
 interface CacheEntry {
   data: HotelSearchResult;
@@ -46,7 +55,8 @@ interface CacheEntry {
 }
 
 function getCacheKey(params: HotelSearchParams): string {
-  return `${CACHE_PREFIX}${params.destination}_${params.checkIn}_${params.checkOut}`;
+  const rentals = params.includeVacationRentals === false ? 'hotels' : 'all';
+  return `${CACHE_PREFIX}${params.destination}_${params.checkIn}_${params.checkOut}_${params.adults || 2}_${rentals}_${params.maxPrice || 'any'}`;
 }
 
 function getFromCache(key: string): HotelSearchResult | null {
@@ -91,59 +101,72 @@ function calculateNights(checkIn: string, checkOut: string): number {
   return Math.max(1, Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)));
 }
 
-/**
- * Fetch hotel options from SerpAPI via edge function - NO mock fallback.
- * Returns the FULL list (typically 20-30 properties). Filters/sort are applied client-side.
- */
-export async function fetchHotelOptions(
-  params: HotelSearchParams
-): Promise<HotelSearchResult> {
-  const { destination, checkIn, checkOut, adults = 2 } = params;
-  const nights = calculateNights(checkIn, checkOut);
-
-  // Check cache first
-  const cacheKey = getCacheKey(params);
-  const cached = getFromCache(cacheKey);
-  if (cached) return cached;
-
-  if (import.meta.env.DEV) console.log(`Fetching hotels in: ${destination}`);
-
-  const { data, error } = await supabase.functions.invoke('search-hotels', {
-    body: { destination, checkIn, checkOut, adults },
-  });
-
-  if (error) {
-    throw new Error(`Hotel search failed: ${error.message}`);
+function detectPropertyType(name: string, address?: string | null, forced?: StayPropertyType): StayPropertyType {
+  if (forced) return forced;
+  const blob = `${name} ${address || ''}`.toLowerCase();
+  if (
+    /airbnb|vacation rental|apartment|aparthotel|appart|flat |condo|villa|cottage|entire home|private room|guest suite|holiday home|rental/.test(
+      blob
+    )
+  ) {
+    return 'vacation_rental';
   }
+  return 'hotel';
+}
 
-  if (data.ok === false) {
-    throw new Error(data.error || 'Hotel search returned an error');
+/** Prefer property deep-link; fall back to Google Hotels / Airbnb search for the stay. */
+function resolveBookingUrl(
+  name: string,
+  link: string | undefined,
+  searchUrl: string,
+  propertyType: StayPropertyType,
+  destination: string,
+  checkIn: string,
+  checkOut: string,
+  adults: number
+): string {
+  if (link && !link.includes('google.com/travel/search') && !link.includes('google.com/travel/hotels')) {
+    return link;
   }
-
-  const rawResults: any[] = data.results || [];
-  const searchUrl = data.searchUrl || `https://www.google.com/travel/hotels?q=hotels+in+${encodeURIComponent(destination)}`;
-
-  if (rawResults.length === 0) {
-    return {
-      destination,
-      options: [],
-      searchUrl,
-      searchDate: new Date().toISOString(),
-      totalFound: 0,
-    };
+  if (propertyType === 'vacation_rental') {
+    // Airbnb search with dates so users can book real listings
+    const params = new URLSearchParams({
+      query: destination,
+      checkin: checkIn,
+      checkout: checkOut,
+      adults: String(adults),
+    });
+    return `https://www.airbnb.com/s/${encodeURIComponent(destination)}/homes?${params.toString()}`;
   }
+  if (link) return link;
+  return searchUrl;
+}
 
-  // Keep only priced hotels; sort by nightly price
-  const withPrices = rawResults.filter(r => r.pricePerNight || r.totalPrice || r.price);
-  withPrices.sort((a, b) => (a.pricePerNight || a.price || 0) - (b.pricePerNight || b.price || 0));
+function mapRawResults(
+  rawResults: any[],
+  nights: number,
+  destination: string,
+  searchUrl: string,
+  checkIn: string,
+  checkOut: string,
+  adults: number,
+  forcedType?: StayPropertyType,
+  idPrefix = 'stay'
+): HotelOption[] {
+  const withPrices = rawResults.filter((r) => r.pricePerNight || r.totalPrice || r.price);
+  withPrices.sort(
+    (a, b) => (a.pricePerNight || a.price || 0) - (b.pricePerNight || b.price || 0)
+  );
 
-  const options: HotelOption[] = withPrices.map((r, idx) => {
+  return withPrices.map((r, idx) => {
     const pricePerNight = r.pricePerNight || r.price || 0;
     const totalPrice = r.totalPrice || pricePerNight * nights;
     const stars: number = typeof r.stars === 'number' ? r.stars : 0;
+    const propertyType = detectPropertyType(r.name || '', r.address, forcedType);
+    const name = r.name || 'Unnamed stay';
     return {
-      id: `hotel-${idx}-${(r.name || 'unnamed').slice(0, 20)}`,
-      name: r.name,
+      id: `${idPrefix}-${idx}-${name.slice(0, 20)}`,
+      name,
       pricePerNight: Math.round(pricePerNight),
       totalPrice: Math.round(totalPrice),
       rating: r.rating || 0,
@@ -153,18 +176,192 @@ export async function fetchHotelOptions(
       amenities: r.amenities || [],
       imageUrl: r.thumbnail || (r.images?.[0] ?? 'https://placehold.co/400x300'),
       images: r.images || [],
-      bookingUrl: r.link || searchUrl,
+      bookingUrl: resolveBookingUrl(
+        name,
+        r.link,
+        searchUrl,
+        propertyType,
+        destination,
+        checkIn,
+        checkOut,
+        adults
+      ),
       location: destination,
       distance: r.distance || undefined,
+      propertyType,
     };
   });
+}
+
+async function invokeStaySearch(
+  query: string,
+  checkIn: string,
+  checkOut: string,
+  adults: number,
+  opts: {
+    maxPrice?: number;
+    maxPricePerNight?: number;
+    vacationRentals?: boolean;
+    limit?: number;
+  } = {}
+): Promise<{ results: any[]; searchUrl: string; totalFound: number }> {
+  const { data, error } = await supabase.functions.invoke('search-hotels', {
+    body: {
+      q: query,
+      destination: query,
+      checkIn,
+      checkOut,
+      adults,
+      sortByPrice: true,
+      maxPrice: opts.maxPrice,
+      maxPricePerNight: opts.maxPricePerNight,
+      vacationRentals: opts.vacationRentals ?? false,
+      limit: opts.limit ?? 80,
+    },
+  });
+
+  if (error) {
+    throw new Error(`Stay search failed: ${error.message}`);
+  }
+  if (data?.ok === false) {
+    throw new Error(data.error || 'Stay search returned an error');
+  }
+
+  return {
+    results: data?.results || [],
+    searchUrl:
+      data?.searchUrl ||
+      `https://www.google.com/travel/hotels?q=${encodeURIComponent(query)}`,
+    totalFound: data?.totalFound || (data?.results || []).length,
+  };
+}
+
+/**
+ * Fetch hotels + vacation rentals via SerpAPI — budget-first (cheapest first, more inventory).
+ * NO mock fallback. Filters/sort applied client-side as a second pass.
+ */
+export async function fetchHotelOptions(
+  params: HotelSearchParams
+): Promise<HotelSearchResult> {
+  const {
+    destination,
+    checkIn,
+    checkOut,
+    adults = 2,
+    includeVacationRentals = true,
+    maxPrice,
+    maxPricePerNight,
+  } = params;
+  const nights = calculateNights(checkIn, checkOut);
+
+  // Derive nightly cap from total lodging budget when not provided
+  const derivedNightly =
+    maxPricePerNight ??
+    (typeof maxPrice === 'number' ? Math.max(1, Math.ceil(maxPrice / nights)) : undefined);
+
+  const cacheKey = getCacheKey(params);
+  const cached = getFromCache(cacheKey);
+  if (cached) return cached;
+
+  if (import.meta.env.DEV) {
+    console.log(
+      `Fetching cheapest stays in: ${destination} (rentals=${includeVacationRentals}, maxTotal=${maxPrice ?? '—'}, max/night=${derivedNightly ?? '—'})`
+    );
+  }
+
+  const hotelQuery = `hotels in ${destination}`;
+  const rentalQuery = `vacation rentals apartments in ${destination}`;
+
+  const budgetOpts = {
+    maxPrice,
+    maxPricePerNight: derivedNightly,
+    limit: 80,
+  };
+
+  // Without a tight budget, also pull a wider unfiltered cheap-sorted list so
+  // users see maximum inventory — then filter client-side.
+  const hotelPromise = invokeStaySearch(hotelQuery, checkIn, checkOut, adults, {
+    ...budgetOpts,
+    vacationRentals: false,
+  });
+  const rentalPromise = includeVacationRentals
+    ? invokeStaySearch(rentalQuery, checkIn, checkOut, adults, {
+        ...budgetOpts,
+        vacationRentals: true,
+      }).catch((err) => {
+        if (import.meta.env.DEV) console.warn('Vacation rental search failed:', err);
+        return { results: [] as any[], searchUrl: '', totalFound: 0 };
+      })
+    : Promise.resolve({ results: [] as any[], searchUrl: '', totalFound: 0 });
+
+  // Parallel unfiltered cheap-sorted pass (more options if max_price was too tight)
+  const wideHotelPromise =
+    typeof maxPrice === 'number'
+      ? invokeStaySearch(hotelQuery, checkIn, checkOut, adults, {
+          vacationRentals: false,
+          limit: 60,
+        }).catch(() => ({ results: [] as any[], searchUrl: '', totalFound: 0 }))
+      : Promise.resolve({ results: [] as any[], searchUrl: '', totalFound: 0 });
+
+  const [hotelData, rentalData, wideHotelData] = await Promise.all([
+    hotelPromise,
+    rentalPromise,
+    wideHotelPromise,
+  ]);
+
+  const hotelOptions = mapRawResults(
+    [...hotelData.results, ...wideHotelData.results],
+    nights,
+    destination,
+    hotelData.searchUrl || wideHotelData.searchUrl,
+    checkIn,
+    checkOut,
+    adults,
+    undefined,
+    'hotel'
+  );
+  const rentalOptions = mapRawResults(
+    rentalData.results,
+    nights,
+    destination,
+    rentalData.searchUrl || hotelData.searchUrl,
+    checkIn,
+    checkOut,
+    adults,
+    'vacation_rental',
+    'rental'
+  );
+
+  // Deduplicate by name; keep cheapest instance of each property
+  const byName = new Map<string, HotelOption>();
+  for (const opt of [...hotelOptions, ...rentalOptions]) {
+    const key = opt.name.trim().toLowerCase();
+    const existing = byName.get(key);
+    if (!existing || opt.totalPrice < existing.totalPrice) {
+      byName.set(key, opt);
+    }
+  }
+
+  let options = Array.from(byName.values());
+
+  // Soft budget filter: keep all, but put in-budget first; hard-filter only if many fit
+  options.sort((a, b) => a.pricePerNight - b.pricePerNight || a.totalPrice - b.totalPrice);
+
+  if (typeof maxPrice === 'number' && maxPrice > 0) {
+    const inBudget = options.filter((o) => o.totalPrice <= maxPrice);
+    // Prefer in-budget options first, then slightly over for transparency
+    const over = options.filter((o) => o.totalPrice > maxPrice);
+    options = [...inBudget, ...over];
+  }
+
+  const airbnbUrl = `https://www.airbnb.com/s/${encodeURIComponent(destination)}/homes?checkin=${checkIn}&checkout=${checkOut}&adults=${adults}`;
 
   const result: HotelSearchResult = {
     destination,
     options,
-    searchUrl,
+    searchUrl: hotelData.searchUrl || airbnbUrl,
     searchDate: new Date().toISOString(),
-    totalFound: data.totalFound || rawResults.length,
+    totalFound: options.length,
   };
 
   setCache(cacheKey, result);

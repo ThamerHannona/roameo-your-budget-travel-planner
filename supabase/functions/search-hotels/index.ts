@@ -16,7 +16,7 @@ const isValidFutureDate = (date: string) => {
 };
 
 const HotelSearchSchema = z.object({
-  q: z.string().trim().min(2, 'q must be at least 2 characters').max(100, 'q must be at most 100 characters')
+  q: z.string().trim().min(2, 'q must be at least 2 characters').max(120, 'q must be at most 120 characters')
     .regex(/^[\p{L}0-9\s,.\-'()]+$/u, 'q contains invalid characters'),
   checkIn: z.string().refine(isValidFutureDate, 'checkIn must be YYYY-MM-DD within the next 2 years'),
   checkOut: z.string().refine(isValidFutureDate, 'checkOut must be YYYY-MM-DD within the next 2 years'),
@@ -25,6 +25,16 @@ const HotelSearchSchema = z.object({
   currency: z.string().regex(/^[A-Z]{3}$/, 'currency must be a 3-letter ISO code').default('USD'),
   gl: z.string().regex(/^[a-z]{2}$/, 'gl must be a 2-letter country code').default('us'),
   hl: z.string().regex(/^[a-z]{2}$/, 'hl must be a 2-letter language code').default('en'),
+  /** Budget-first: sort by lowest price (SerpAPI sort_by=3) */
+  sortByPrice: z.boolean().default(true),
+  /** Max total stay price for the whole trip (all nights) — maps to Google Hotels max_price when possible */
+  maxPrice: z.number().int().positive().max(500000).optional(),
+  /** Max nightly rate filter */
+  maxPricePerNight: z.number().int().positive().max(50000).optional(),
+  /** Fetch vacation rentals mode */
+  vacationRentals: z.boolean().default(false),
+  /** How many property results to aim for */
+  limit: z.number().int().min(10).max(100).default(80),
 }).refine(
   (d) => new Date(d.checkOut) > new Date(d.checkIn),
   { message: 'checkOut must be after checkIn' }
@@ -35,10 +45,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Rate limiting
+// Rate limiting — higher for dual hotel + rental budget searches
 const RATE_LIMITS = {
-  anonymous: { maxRequests: 5, windowMs: 60 * 60 * 1000 },
-  authenticated: { maxRequests: 20, windowMs: 60 * 60 * 1000 },
+  anonymous: { maxRequests: 40, windowMs: 60 * 60 * 1000 },
+  authenticated: { maxRequests: 80, windowMs: 60 * 60 * 1000 },
 };
 
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -175,6 +185,11 @@ serve(async (req) => {
           currency: body.currency,
           gl: body.gl,
           hl: body.hl,
+          sortByPrice: body.sortByPrice ?? body.sort_by_price,
+          maxPrice: body.maxPrice ?? body.max_price,
+          maxPricePerNight: body.maxPricePerNight ?? body.max_price_per_night,
+          vacationRentals: body.vacationRentals ?? body.vacation_rentals,
+          limit: body.limit,
         };
       } catch {
         return jsonRes({ ok: false, error: 'Invalid JSON body' }, 400);
@@ -190,19 +205,35 @@ serve(async (req) => {
     if (!parsed.success) {
       return jsonRes({ ok: false, error: 'Invalid request parameters', details: parsed.error.flatten() }, 400);
     }
-    const { q, checkIn, checkOut, adults, rooms, currency, gl, hl } = parsed.data;
+    const {
+      q, checkIn, checkOut, adults, rooms, currency, gl, hl,
+      sortByPrice, maxPrice, maxPricePerNight, vacationRentals, limit,
+    } = parsed.data;
 
     const nights = Math.max(1, Math.ceil(
       (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24)
     ));
 
-    console.log(`Searching hotels: q="${q}" checkIn=${checkIn} checkOut=${checkOut} adults=${adults} rooms=${rooms}`);
+    console.log(
+      `Searching stays (budget-first): q="${q}" ${checkIn}→${checkOut} adults=${adults} sortPrice=${sortByPrice} maxTotal=${maxPrice ?? '—'} rentals=${vacationRentals} limit=${limit}`
+    );
 
-    // Build SerpAPI request
+    // Build SerpAPI request. Preserve explicit hotel / vacation-rental queries.
+    const qLower = q.toLowerCase();
+    const searchQuery =
+      qLower.startsWith('hotels in') ||
+      qLower.startsWith('vacation rental') ||
+      qLower.startsWith('apartments') ||
+      qLower.includes('airbnb')
+        ? q
+        : vacationRentals
+          ? `vacation rentals in ${q}`
+          : `hotels in ${q}`;
+
     const searchParams = new URLSearchParams({
       engine: 'google_hotels',
       api_key: serpApiKey,
-      q: q.startsWith('hotels in') ? q : `hotels in ${q}`,
+      q: searchQuery,
       check_in_date: checkIn,
       check_out_date: checkOut,
       adults: adults.toString(),
@@ -211,6 +242,21 @@ serve(async (req) => {
       hl,
       gl,
     });
+
+    // Budget-first: lowest price first
+    if (sortByPrice) {
+      searchParams.set('sort_by', '3'); // Lowest price
+    }
+    if (vacationRentals) {
+      searchParams.set('vacation_rentals', 'true');
+    }
+    // Google Hotels max_price is typically nightly; prefer maxPricePerNight, else derive from total
+    const nightlyCap =
+      maxPricePerNight ??
+      (typeof maxPrice === 'number' ? Math.max(1, Math.ceil(maxPrice / nights)) : undefined);
+    if (typeof nightlyCap === 'number' && nightlyCap > 0) {
+      searchParams.set('max_price', String(nightlyCap));
+    }
 
     const apiUrl = `https://serpapi.com/search.json?${searchParams}`;
     console.log('Calling SerpAPI:', apiUrl.replace(serpApiKey, 'REDACTED'));
@@ -233,9 +279,9 @@ serve(async (req) => {
 
     let allHotels: SerpApiHotel[] = data.properties || [];
 
-    // Follow next_page_token up to 2 more times to reach ~50 properties.
-    const TARGET = 50;
-    const MAX_EXTRA_PAGES = 2;
+    // Paginate aggressively to surface more cheap inventory
+    const TARGET = limit;
+    const MAX_EXTRA_PAGES = 4;
     let nextToken: string | undefined = data.serpapi_pagination?.next_page_token
       || data.pagination?.next_page_token
       || data.next_page_token;
@@ -279,8 +325,8 @@ serve(async (req) => {
     const searchUrl = data.search_metadata?.google_hotels_url ||
       `https://www.google.com/travel/hotels?q=${encodeURIComponent(q)}`;
 
-    // Normalize results with enriched fields
-    const results = allHotels.map((hotel) => {
+    // Normalize + budget filter + sort cheapest first
+    let results = allHotels.map((hotel) => {
       const pricePerNight = hotel.rate_per_night?.extracted_lowest ||
         (hotel.total_rate?.extracted_lowest ? Math.round(hotel.total_rate.extracted_lowest / nights) : null);
       const totalPrice = hotel.total_rate?.extracted_lowest ||
@@ -312,17 +358,35 @@ serve(async (req) => {
         amenities: hotel.amenities?.slice(0, 8) || [],
         pricePerNight: pricePerNight ?? null,
         totalPrice: totalPrice ? Math.round(totalPrice) : null,
+        propertyType: vacationRentals || /apartment|vacation|rental|airbnb|villa|condo/i.test(hotel.name || '') || /vacation|apartment/i.test(hotel.type || '')
+          ? 'vacation_rental'
+          : 'hotel',
       };
     });
 
-    console.log(`Found ${results.length} hotel results`);
+    // Keep priced stays; apply budget caps client already may send
+    results = results.filter((r) => r.pricePerNight || r.totalPrice);
+    if (typeof maxPrice === 'number') {
+      results = results.filter((r) => (r.totalPrice ?? Infinity) <= maxPrice);
+    }
+    if (typeof maxPricePerNight === 'number') {
+      results = results.filter((r) => (r.pricePerNight ?? Infinity) <= maxPricePerNight);
+    }
+    results.sort((a, b) => (a.pricePerNight || a.price || 0) - (b.pricePerNight || b.price || 0));
+
+    const cheapest = results[0];
+    console.log(
+      `Found ${results.length} stay results (cheapest ${cheapest ? `$${cheapest.pricePerNight}/n ${cheapest.name}` : 'n/a'})`
+    );
 
     return jsonRes({
       ok: true,
       results,
       searchUrl,
-      totalFound: allHotels.length,
+      totalFound: results.length,
       nights,
+      cheapestPricePerNight: cheapest?.pricePerNight ?? null,
+      cheapestTotal: cheapest?.totalPrice ?? null,
     }, 200);
 
 

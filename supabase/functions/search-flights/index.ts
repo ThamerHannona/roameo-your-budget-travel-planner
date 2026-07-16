@@ -2,8 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { z } from "https://esm.sh/zod@3.23.8";
 
-// Input validation schemas
-const IATA_REGEX = /^[A-Z]{3}$/;
+// Input validation schemas — allow multi-airport codes (JFK,EWR,LGA)
+const IATA_LIST_REGEX = /^[A-Z]{3}(,[A-Z]{3}){0,5}$/;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const CABIN_VALUES = ['economy', 'premium_economy', 'business', 'first'] as const;
 
@@ -18,17 +18,27 @@ const isValidFutureDate = (date: string) => {
 };
 
 const FlightSearchSchema = z.object({
-  origin: z.string().trim().toUpperCase().regex(IATA_REGEX, 'origin must be a 3-letter IATA code'),
-  destination: z.string().trim().toUpperCase().regex(IATA_REGEX, 'destination must be a 3-letter IATA code'),
+  origin: z.string().trim().toUpperCase().regex(IATA_LIST_REGEX, 'origin must be IATA code(s)'),
+  destination: z.string().trim().toUpperCase().regex(IATA_LIST_REGEX, 'destination must be IATA code(s)'),
   departureDate: z.string().refine(isValidFutureDate, 'departDate must be YYYY-MM-DD within the next year'),
   returnDate: z.string().refine(isValidFutureDate, 'returnDate must be YYYY-MM-DD within the next year').optional(),
   adults: z.number().int().min(1).max(9).default(1),
   cabin: z.enum(CABIN_VALUES).default('economy'),
+  /** Budget-first: max total ticket price (all passengers) */
+  maxPrice: z.number().int().positive().max(100000).optional(),
+  /** More results, slower — use for single-destination budget page */
+  deepSearch: z.boolean().default(false),
+  /** Include "View more flights" hidden results (default true for budget discovery) */
+  showHidden: z.boolean().default(true),
 }).refine(
   (d) => !d.returnDate || new Date(d.returnDate) >= new Date(d.departureDate),
   { message: 'returnDate must be on or after departureDate' }
 ).refine(
-  (d) => d.origin !== d.destination,
+  (d) => {
+    const o = d.origin.split(',')[0];
+    const dest = d.destination.split(',')[0];
+    return o !== dest;
+  },
   { message: 'origin and destination must differ' }
 );
 
@@ -37,10 +47,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Rate limiting configuration
+// Rate limiting — higher for multi-destination budget discovery
 const RATE_LIMITS = {
-  anonymous: { maxRequests: 5, windowMs: 60 * 60 * 1000 },
-  authenticated: { maxRequests: 20, windowMs: 60 * 60 * 1000 },
+  anonymous: { maxRequests: 40, windowMs: 60 * 60 * 1000 },
+  authenticated: { maxRequests: 80, windowMs: 60 * 60 * 1000 },
 };
 
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
@@ -176,6 +186,13 @@ function categorizeTier(
   return 'premium';
 }
 
+function flightFingerprint(flight: SerpApiFlight): string {
+  const segs = (flight.flights || []).map(
+    (s) => `${s.flight_number}|${s.departure_airport?.id}|${s.departure_airport?.time}`
+  );
+  return `${flight.price}|${segs.join('>')}`;
+}
+
 function transformFlightLegacy(
   flight: SerpApiFlight,
   searchUrl: string,
@@ -201,10 +218,13 @@ function transformFlightLegacy(
       city: lastSegment.arrival_airport.name,
     },
     duration: formatDuration(flight.total_duration),
+    durationMinutes: flight.total_duration,
     layovers: flight.flights.length - 1,
     layoverCities,
     layoverDuration: totalLayoverMinutes > 0 ? formatDuration(totalLayoverMinutes) : '',
     bookingUrl: searchUrl,
+    bookingToken: flight.booking_token,
+    departureToken: (flight as { departure_token?: string }).departure_token,
     tier,
     airlineLogo: firstSegment.airline_logo,
   };
@@ -264,6 +284,9 @@ serve(async (req) => {
           returnDate: body.returnDate,
           adults: body.adults,
           cabin: body.cabin,
+          maxPrice: body.maxPrice ?? body.max_price,
+          deepSearch: body.deepSearch ?? body.deep_search,
+          showHidden: body.showHidden ?? body.show_hidden,
         };
       } catch {
         return new Response(
@@ -283,11 +306,13 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    const { origin, destination, departureDate, returnDate, adults, cabin } = parsed.data;
+    const { origin, destination, departureDate, returnDate, adults, cabin, maxPrice, deepSearch, showHidden } = parsed.data;
 
-    console.log(`Searching flights: ${origin} → ${destination} on ${departureDate}, cabin=${cabin}`);
+    console.log(
+      `Searching flights (budget-first): ${origin} → ${destination} on ${departureDate}, sort=price, show_hidden=${showHidden}, deep=${deepSearch}, maxPrice=${maxPrice ?? 'none'}`
+    );
 
-    // Build SerpAPI request
+    // Budget-first SerpAPI request: sort by price, expand hidden inventory
     const searchParams = new URLSearchParams({
       engine: 'google_flights',
       api_key: serpApiKey,
@@ -297,8 +322,18 @@ serve(async (req) => {
       adults: adults.toString(),
       currency: 'USD',
       hl: 'en',
+      gl: 'us',
       travel_class: mapCabinToTravelClass(cabin),
+      sort_by: '2', // Price (cheapest first)
+      show_hidden: showHidden ? 'true' : 'false',
     });
+
+    if (deepSearch) {
+      searchParams.set('deep_search', 'true');
+    }
+    if (typeof maxPrice === 'number' && maxPrice > 0) {
+      searchParams.set('max_price', String(maxPrice));
+    }
 
     if (returnDate) {
       searchParams.set('return_date', returnDate);
@@ -342,35 +377,73 @@ serve(async (req) => {
 
     const bestFlights: SerpApiFlight[] = data.best_flights || [];
     const otherFlights: SerpApiFlight[] = data.other_flights || [];
-    const allFlights = [...bestFlights, ...otherFlights].sort((a, b) => a.price - b.price);
+
+    // Merge + dedupe + sort cheapest first
+    const seen = new Set<string>();
+    const allFlights: SerpApiFlight[] = [];
+    for (const f of [...bestFlights, ...otherFlights]) {
+      if (!f?.price || !f?.flights?.length) continue;
+      if (typeof maxPrice === 'number' && f.price > maxPrice) continue;
+      const fp = flightFingerprint(f);
+      if (seen.has(fp)) continue;
+      seen.add(fp);
+      allFlights.push(f);
+    }
+    allFlights.sort((a, b) => a.price - b.price);
 
     const searchUrl = data.search_metadata?.google_flights_url ||
       `https://www.google.com/travel/flights?q=flights+from+${origin}+to+${destination}`;
 
+    const priceInsights = data.price_insights
+      ? {
+          lowestPrice: data.price_insights.lowest_price,
+          priceLevel: data.price_insights.price_level,
+          typicalRange: data.price_insights.typical_price_range,
+        }
+      : undefined;
+
     // For GET requests, return normalized format
     if (isGetRequest) {
-      const results = normalizeFlights(bestFlights, otherFlights, searchUrl);
+      const results = normalizeFlights(allFlights, [], searchUrl);
       return new Response(
-        JSON.stringify({ ok: true, results }),
+        JSON.stringify({ ok: true, results, priceInsights }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // For POST requests, return the FULL list of normalized flights.
-    // Client derives tier highlights + applies sort/filter.
+    // For POST requests, return the FULL list sorted by price (budget-first).
     if (allFlights.length === 0) {
       return new Response(
-        JSON.stringify({ ok: true, origin, destination, options: [], searchUrl, searchDate: new Date().toISOString(), totalFound: 0 }),
+        JSON.stringify({
+          ok: true,
+          origin,
+          destination,
+          options: [],
+          searchUrl,
+          searchDate: new Date().toISOString(),
+          totalFound: 0,
+          priceInsights,
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const options = allFlights.map((f, i) => transformFlightLegacy(f, searchUrl, categorizeTier(allFlights, i)));
 
-    console.log(`Returning ${options.length} flight options (of ${allFlights.length} total)`);
+    console.log(`Returning ${options.length} flight options sorted by price (cheapest $${options[0]?.price})`);
 
     return new Response(
-      JSON.stringify({ ok: true, origin, destination, options, searchUrl, searchDate: new Date().toISOString(), totalFound: allFlights.length }),
+      JSON.stringify({
+        ok: true,
+        origin,
+        destination,
+        options,
+        searchUrl,
+        searchDate: new Date().toISOString(),
+        totalFound: allFlights.length,
+        cheapestPrice: options[0]?.price,
+        priceInsights,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

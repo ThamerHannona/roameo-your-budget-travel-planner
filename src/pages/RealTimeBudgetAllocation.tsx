@@ -188,7 +188,7 @@ export default function RealTimeBudgetAllocation() {
 
 
 
-  // Fetch real flight data when destination is loaded
+  // Fetch real flights + stays (budget-first, max inventory) when destination loads
   useEffect(() => {
     if (!destination || !tsDepartureCity || !tsStart || !tsEnd) {
       return;
@@ -197,9 +197,23 @@ export default function RealTimeBudgetAllocation() {
     const destinationCode = getAirportCode(destination.name);
     if (!destinationCode) return;
 
-    searchFlights(tsDepartureCity, tsStart, tsEnd, tsTravelers, [destinationCode]);
-    searchHotels(destination.name, tsStart, tsEnd, tsTravelers);
-  }, [destination, tsDepartureCity, tsStart, tsEnd, tsTravelers, searchFlights, searchHotels]);
+    const totalBudget = tsBudget || 0;
+    // Soft lodging guidance only — do NOT hard-cap API inventory (we want max options
+    // sorted cheapest-first; pickers enforce "within budget" for selection).
+    const lodgingHint = totalBudget > 0 ? Math.round(totalBudget * 0.5) : undefined;
+
+    // Deep search + multi-airport + show_hidden for maximum cheap fare inventory
+    searchFlights(tsDepartureCity, tsStart, tsEnd, tsTravelers, {
+      destinations: [destinationCode],
+      deepSearch: true,
+    });
+
+    // Cheap-sorted hotels + vacation rentals (large result set)
+    searchHotels(destination.name, tsStart, tsEnd, tsTravelers, {
+      maxPrice: lodgingHint,
+      includeVacationRentals: true,
+    });
+  }, [destination, tsDepartureCity, tsStart, tsEnd, tsTravelers, tsBudget, searchFlights, searchHotels]);
 
   // Map real flight results to store format
   useEffect(() => {
@@ -222,6 +236,7 @@ export default function RealTimeBudgetAllocation() {
       price: opt.price, // total for all travelers
       pricePerPerson: Math.round(opt.price / travelers),
       duration: opt.duration,
+      durationMinutes: opt.durationMinutes,
       stops: opt.layovers,
       layover: opt.layoverDuration || undefined,
       layoverCities: opt.layoverCities,
@@ -233,7 +248,10 @@ export default function RealTimeBudgetAllocation() {
       bookingUrl: opt.bookingUrl,
     }));
 
-    const sortedOptions = [...mappedOptions].sort((a, b) => a.price - b.price);
+    // Budget-first: always store cheapest-first
+    const sortedOptions = [...mappedOptions].sort(
+      (a, b) => a.price - b.price || (a.stops ?? 9) - (b.stops ?? 9)
+    );
     setFlightOptions(sortedOptions);
   }, [destination, flightResults, tsTravelers, setFlightOptions]);
 
@@ -248,6 +266,7 @@ export default function RealTimeBudgetAllocation() {
     const mappedTiers: HotelTier[] = result.options.map((hotel) => {
       const stars = hotel.stars || 3;
       const tierLabel: '3★' | '4★' | '5★' = stars >= 5 ? '5★' : stars >= 4 ? '4★' : '3★';
+      const isRental = hotel.propertyType === 'vacation_rental';
       return {
         id: hotel.id,
         tier: tierLabel,
@@ -255,7 +274,9 @@ export default function RealTimeBudgetAllocation() {
         name: hotel.name,
         pricePerNight: hotel.pricePerNight,
         totalPrice: hotel.totalPrice,
-        description: `${stars}-star accommodation`,
+        description: isRental
+          ? 'Vacation rental / apartment (Airbnb-style)'
+          : `${stars}-star hotel`,
         amenities: hotel.amenities || [],
         bookingUrl: hotel.bookingUrl,
         imageUrl: hotel.imageUrl,
@@ -263,6 +284,7 @@ export default function RealTimeBudgetAllocation() {
         rating: hotel.rating,
         reviewCount: hotel.reviewCount,
         distance: hotel.distance,
+        propertyType: hotel.propertyType,
       };
     });
 
@@ -371,6 +393,35 @@ export default function RealTimeBudgetAllocation() {
     }
     return envelope.lodgingCap;
   }, [envelope, selectedFlight]);
+
+  // After both live inventories first load, lock cheapest stay that fits remaining budget
+  const budgetLockRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hasLiveFlights || !hasLiveHotels) return;
+    const lockKey = `${destinationId}|${constraints.flights.options.length}|${constraints.hotels.tiers.length}|${constraints.flights.current}`;
+    if (budgetLockRef.current === lockKey) return;
+    budgetLockRef.current = lockKey;
+
+    const flightPrice = constraints.flights.current || 0;
+    const otherFloor = Math.round(destinationBudget.totalBudget * 0.2);
+    const lodgingRoom = Math.max(0, destinationBudget.totalBudget - flightPrice - otherFloor);
+    const sorted = [...constraints.hotels.tiers].sort((a, b) => a.totalPrice - b.totalPrice);
+    if (!sorted.length) return;
+    const best = sorted.find((t) => t.totalPrice <= lodgingRoom) || sorted[0];
+    if (best && best.totalPrice !== constraints.hotels.current) {
+      updateCategory('hotels', best.totalPrice);
+    }
+  }, [
+    hasLiveFlights,
+    hasLiveHotels,
+    destinationId,
+    constraints.flights.options.length,
+    constraints.hotels.tiers,
+    constraints.flights.current,
+    constraints.hotels.current,
+    destinationBudget.totalBudget,
+    updateCategory,
+  ]);
 
 
   if (!destination) {

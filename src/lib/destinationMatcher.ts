@@ -214,10 +214,13 @@ export const matchDestinations = (criteria: MatchCriteriaWithFlights): Destinati
       // Static costs in destinations.ts are per-person, so only multiply those
       let totalFlightCost: number;
       if (hasRealFlightData && realFlightResult) {
-        // Use mid-tier flight (recommended) for calculations
-        // Price is already for all travelers from the API
-        const midFlight = realFlightResult.options.find(o => o.tier === 'mid');
-        totalFlightCost = midFlight?.price || getCheapestPrice(realFlightResult);
+        // BUDGET-FIRST: always score destinations on the cheapest available fare
+        // (SerpAPI price is already total for all travelers)
+        totalFlightCost =
+          realFlightResult.cheapestPrice ||
+          getCheapestPrice(realFlightResult) ||
+          realFlightResult.options[0]?.price ||
+          0;
       } else {
         // Static costs are per-person, so multiply by travelers
         totalFlightCost = destination.costs.flight * criteria.travelers;
@@ -339,10 +342,14 @@ export const getGhostTrips = (criteria: MatchCriteriaWithFlights): DestinationMa
       const hasRealFlightData = realFlightResult && !realFlightResult.useMock && realFlightResult.options.length > 0;
       
       // IMPORTANT: SerpAPI returns TOTAL price for all travelers, NOT per-person
+      // BUDGET-FIRST: score on cheapest fare
       let totalFlightCost: number;
       if (hasRealFlightData && realFlightResult) {
-        const midFlight = realFlightResult.options.find(o => o.tier === 'mid');
-        totalFlightCost = midFlight?.price || getCheapestPrice(realFlightResult);
+        totalFlightCost =
+          realFlightResult.cheapestPrice ||
+          getCheapestPrice(realFlightResult) ||
+          realFlightResult.options[0]?.price ||
+          0;
       } else {
         // Static costs are per-person
         totalFlightCost = destination.costs.flight * criteria.travelers;

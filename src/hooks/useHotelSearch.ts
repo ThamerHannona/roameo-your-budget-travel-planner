@@ -9,18 +9,26 @@ export interface HotelSearchState {
   hasMockData: boolean;
 }
 
+export interface HotelSearchCallOptions {
+  maxPrice?: number;
+  maxPricePerNight?: number;
+  includeVacationRentals?: boolean;
+}
+
 export interface UseHotelSearchReturn extends HotelSearchState {
   search: (
     destination: string,
     checkIn: Date | string,
     checkOut: Date | string,
-    travelers?: number
+    travelers?: number,
+    options?: HotelSearchCallOptions
   ) => Promise<HotelSearchResult | void>;
   searchHotels: (
     destination: string,
     checkIn: Date,
     checkOut: Date,
-    travelers?: number
+    travelers?: number,
+    options?: HotelSearchCallOptions
   ) => Promise<HotelSearchResult>;
   getHotelPrice: (destination: string, tier?: '3-star' | '4-star' | '5-star') => number | null;
   getHotelOptions: (destination: string) => HotelOption[];
@@ -44,7 +52,8 @@ export function useHotelSearch(): UseHotelSearchReturn {
     destination: string,
     checkIn: Date,
     checkOut: Date,
-    travelers: number = 2
+    travelers: number = 2,
+    options: HotelSearchCallOptions = {}
   ): Promise<HotelSearchResult> => {
     if (!destination || !checkIn || !checkOut) {
       throw new Error('Missing required search parameters');
@@ -61,6 +70,9 @@ export function useHotelSearch(): UseHotelSearchReturn {
         checkIn: checkInStr,
         checkOut: checkOutStr,
         adults: travelers,
+        maxPrice: options.maxPrice,
+        maxPricePerNight: options.maxPricePerNight,
+        includeVacationRentals: options.includeVacationRentals ?? true,
       });
 
       setState(prev => {
@@ -91,7 +103,8 @@ export function useHotelSearch(): UseHotelSearchReturn {
     destination: string,
     checkIn: Date | string,
     checkOut: Date | string,
-    travelers: number = 2
+    travelers: number = 2,
+    options: HotelSearchCallOptions = {}
   ): Promise<HotelSearchResult | void> => {
     if (!destination || !checkIn || !checkOut) return;
 
@@ -99,7 +112,7 @@ export function useHotelSearch(): UseHotelSearchReturn {
     const checkOutDate = typeof checkOut === 'string' ? new Date(checkOut) : checkOut;
 
     try {
-      return await searchHotels(destination, checkInDate, checkOutDate, travelers);
+      return await searchHotels(destination, checkInDate, checkOutDate, travelers, options);
     } catch (error) {
       console.error('Hotel search error:', error);
     }

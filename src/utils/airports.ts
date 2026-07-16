@@ -216,19 +216,68 @@ export function getDestinationCodes(): string[] {
 }
 
 /**
- * Default candidate destinations for discovery
+ * Default candidate destinations for discovery — biased toward budget-friendly hubs
+ * with strong low-cost carrier inventory.
  */
 export const CANDIDATE_DESTINATIONS = [
   'LIS', // Lisbon
+  'OPO', // Porto
   'RAK', // Marrakech
   'BCN', // Barcelona
+  'MAD', // Madrid
   'BKK', // Bangkok
   'ATH', // Athens
   'PRG', // Prague
+  'BUD', // Budapest
+  'KRK', // Krakow
   'CUN', // Cancun
   'DUB', // Dublin
   'IST', // Istanbul
-  'BUD', // Budapest
   'VIE', // Vienna
   'MXP', // Milan
+  'FCO', // Rome
+  'AMS', // Amsterdam
+  'BER', // Berlin
+  'CDG', // Paris
+  'CPH', // Copenhagen
 ] as const;
+
+/** Nearby airports that often unlock cheaper fares (SerpAPI accepts comma lists). */
+const MULTI_AIRPORT_HUBS: Record<string, string> = {
+  // US
+  JFK: 'JFK,EWR,LGA',
+  EWR: 'JFK,EWR,LGA',
+  LGA: 'JFK,EWR,LGA',
+  NYC: 'JFK,EWR,LGA',
+  LAX: 'LAX,SNA,BUR,ONT',
+  SFO: 'SFO,OAK,SJC',
+  ORD: 'ORD,MDW',
+  IAH: 'IAH,HOU',
+  MIA: 'MIA,FLL',
+  WAS: 'IAD,DCA,BWI',
+  DCA: 'IAD,DCA,BWI',
+  IAD: 'IAD,DCA,BWI',
+  BWI: 'IAD,DCA,BWI',
+  // Europe destinations (arrival multi-airport)
+  LON: 'LHR,LGW,STN,LTN',
+  LHR: 'LHR,LGW,STN,LTN',
+  LGW: 'LHR,LGW,STN,LTN',
+  PAR: 'CDG,ORY',
+  CDG: 'CDG,ORY',
+  ORY: 'CDG,ORY',
+  ROM: 'FCO,CIA',
+  FCO: 'FCO,CIA',
+  MIL: 'MXP,LIN,BGY',
+  MXP: 'MXP,LIN,BGY',
+};
+
+/**
+ * Expand a single IATA code into multi-airport search for cheaper options.
+ * Pass through if already a comma list.
+ */
+export function expandAirportSearch(code: string | null | undefined): string | null {
+  if (!code) return null;
+  const upper = code.trim().toUpperCase();
+  if (upper.includes(',')) return upper;
+  return MULTI_AIRPORT_HUBS[upper] || upper;
+}

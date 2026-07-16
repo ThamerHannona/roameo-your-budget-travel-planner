@@ -168,14 +168,15 @@ export const useBudgetConstraintsStore = create<
         const { destinationBudget } = get();
         const constraints = destinationBudget.constraints;
         
-        // Calculate min/max from options
-        const prices = options.map(o => o.price);
-        const minPrice = Math.min(...prices);
-        const maxPrice = Math.max(...prices);
-        
-        // Find budget tier (cheapest) as default selection
-        const budgetOption = options.reduce((min, o) => o.price < min.price ? o : min, options[0]);
-        
+        // Sort cheapest first; default select absolute best price
+        const sorted = [...options].sort((a, b) => a.price - b.price);
+        const prices = sorted.map(o => o.price);
+        const minPrice = prices[0];
+        const maxPrice = prices[prices.length - 1];
+        const cheapest = sorted[0];
+
+        // If flexible categories are still at seed values, free budget for activities/food
+        // after locking the cheapest flight (rebalance leftover into flexible buckets later via UI)
         set({
           hasRealFlightData: true,
           destinationBudget: {
@@ -186,8 +187,8 @@ export const useBudgetConstraintsStore = create<
                 ...constraints.flights,
                 min: minPrice,
                 max: maxPrice,
-                current: budgetOption.price,
-                options,
+                current: cheapest.price,
+                options: sorted,
               },
             },
           },
@@ -200,13 +201,23 @@ export const useBudgetConstraintsStore = create<
         const { destinationBudget } = get();
         const constraints = destinationBudget.constraints;
         
-        // Calculate min/max from tiers
-        const prices = tiers.map(t => t.totalPrice);
-        const minPrice = Math.min(...prices);
-        const maxPrice = Math.max(...prices);
-        
-        // Find budget tier (cheapest) as default selection
-        const budgetTier = tiers.reduce((min, t) => t.totalPrice < min.totalPrice ? t : min, tiers[0]);
+        // Sort cheapest first
+        const sorted = [...tiers].sort((a, b) => a.totalPrice - b.totalPrice);
+        const prices = sorted.map(t => t.totalPrice);
+        const minPrice = prices[0];
+        const maxPrice = prices[prices.length - 1];
+
+        // BUDGET-FIRST: pick cheapest stay that still leaves room under total trip budget
+        // after the currently selected flight (and a small buffer for other spend).
+        const flightSpend = constraints.flights.current || 0;
+        const otherFloor = Math.round(destinationBudget.totalBudget * 0.2); // food/activities/transport local
+        const lodgingRoom = Math.max(
+          0,
+          destinationBudget.totalBudget - flightSpend - otherFloor
+        );
+
+        const inBudget = sorted.filter((t) => t.totalPrice <= lodgingRoom);
+        const pick = inBudget[0] || sorted[0];
         
         set({
           hasRealHotelData: true,
@@ -218,8 +229,8 @@ export const useBudgetConstraintsStore = create<
                 ...constraints.hotels,
                 min: minPrice,
                 max: maxPrice,
-                current: budgetTier.totalPrice,
-                tiers,
+                current: pick.totalPrice,
+                tiers: sorted,
               },
             },
           },

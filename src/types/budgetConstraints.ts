@@ -37,6 +37,8 @@ export interface HotelTier {
   rating?: number;
   reviewCount?: number;
   distance?: string;
+  /** hotel | vacation_rental (Airbnb-style apartments) */
+  propertyType?: 'hotel' | 'vacation_rental';
 }
 
 
