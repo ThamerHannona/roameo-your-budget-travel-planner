@@ -47,6 +47,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const SERPAPI_QUOTA_MESSAGE = 'Live flight pricing is temporarily unavailable because the flight search provider account has run out of searches.';
+
+function isSerpApiQuotaExceeded(status: number, bodyText: string): boolean {
+  const normalized = bodyText.toLowerCase();
+  return status === 429 && (
+    normalized.includes('run out of searches') ||
+    normalized.includes('quota') ||
+    normalized.includes('exceeded')
+  );
+}
+
 // Rate limiting — higher for multi-destination budget discovery
 const RATE_LIMITS = {
   anonymous: { maxRequests: 40, windowMs: 60 * 60 * 1000 },
@@ -350,6 +361,19 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('SerpAPI HTTP error:', response.status, errorText);
+
+      if (isSerpApiQuotaExceeded(response.status, errorText)) {
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            error: SERPAPI_QUOTA_MESSAGE,
+            code: 'SERPAPI_QUOTA_EXCEEDED',
+            providerStatus: response.status,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       return new Response(
         JSON.stringify({ ok: false, error: `SerpAPI returned ${response.status}`, debug: errorText }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

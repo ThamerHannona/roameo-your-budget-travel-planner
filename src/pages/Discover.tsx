@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Compass, Scale, Menu, Loader2, RefreshCcw, Plane } from 'lucide-react';
+import { ArrowLeft, Compass, Scale, Menu, Loader2, RefreshCcw, Plane, AlertTriangle } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { resolveTripDates } from '@/utils/tripDates';
 import { Logo } from '@/components/Logo';
@@ -250,6 +250,9 @@ export default function Discover() {
       maxBudget={tripSearch.budget}
     />
   );
+  const hasLiveFlightOptions = Array.from(flightSearch.results.values()).some(
+    result => !result.useMock && result.options.length > 0
+  );
   
   // Show loading state when fetching flights
   if (flightSearch.isLoading && !matches.length) {
@@ -282,9 +285,14 @@ export default function Discover() {
           
           <div className="flex items-center gap-3">
             {/* Flight data status */}
-            {flightSearch.results.size > 0 && (
+            {(flightSearch.results.size > 0 || flightSearch.error) && (
               <div className="hidden md:flex items-center gap-2">
-                {flightSearch.hasMockData ? (
+                {flightSearch.error ? (
+                  <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 text-xs gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Live prices unavailable
+                  </Badge>
+                ) : flightSearch.hasMockData ? (
                   <Badge variant="outline" className="text-xs gap-1">
                     <Plane className="h-3 w-3" />
                     Estimated prices
@@ -351,7 +359,7 @@ export default function Discover() {
           travelers={tripSearch.travelers}
           resultCount={filteredDestinations.length}
           onEdit={() => navigate('/')}
-          isLiveData={hasSearchedFlights}
+          isLiveData={hasLiveFlightOptions}
           hasMockData={flightSearch.hasMockData}
         />
         
@@ -360,12 +368,12 @@ export default function Discover() {
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg flex items-center gap-3"
+            className="mb-6 p-4 bg-warning/10 border border-warning/20 rounded-lg flex items-center gap-3"
           >
-            <span className="text-yellow-600">⚠️</span>
+            <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
             <div>
-              <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                Could not fetch live flight prices. Showing estimated prices instead.
+              <p className="text-sm text-warning font-medium">
+                Live flight pricing is temporarily unavailable. Showing destination estimates instead.
               </p>
               <p className="text-xs text-muted-foreground mt-1">{flightSearch.error}</p>
             </div>

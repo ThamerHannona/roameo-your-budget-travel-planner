@@ -111,10 +111,14 @@ export function useFlightSearch(): UseFlightSearchReturn {
       }
 
       const hasMockData = Array.from(results.values()).some(r => r.useMock);
+      const resultList = Array.from(results.values());
+      const hasLiveOptions = resultList.some(r => !r.useMock && r.options.length > 0);
+      const quotaError = resultList.find(r => r.errorCode === 'SERPAPI_QUOTA_EXCEEDED');
+      const firstError = resultList.find(r => r.error)?.error;
 
       setState({
         isLoading: false,
-        error: null,
+        error: quotaError?.error ?? (!hasLiveOptions && firstError ? firstError : null),
         results,
         hasMockData,
       });
