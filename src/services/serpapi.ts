@@ -38,6 +38,7 @@ export interface FlightSearchResult {
   cheapestPrice?: number;
   error?: string;
   useMock?: boolean;
+  errorCode?: string;
 }
 
 export interface FlightSearchParams {
@@ -58,6 +59,26 @@ export interface FlightSearchParams {
 // Cache configuration — bust when budget search params change
 const CACHE_DURATION_MS = 45 * 60 * 1000; // 45 min
 const CACHE_PREFIX = 'flight_search_v3_';
+const PROVIDER_QUOTA_ERROR_CODE = 'SERPAPI_QUOTA_EXCEEDED';
+const PROVIDER_QUOTA_ERROR_MESSAGE = 'Live flight pricing is temporarily unavailable because the flight search provider account has run out of searches.';
+
+class FlightSearchProviderError extends Error {
+  code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = 'FlightSearchProviderError';
+    this.code = code;
+  }
+}
+
+function isProviderQuotaError(error: unknown): boolean {
+  if (error instanceof FlightSearchProviderError) {
+    return error.code === PROVIDER_QUOTA_ERROR_CODE;
+  }
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return message.includes(PROVIDER_QUOTA_ERROR_CODE) || message.toLowerCase().includes('run out of searches');
+}
 
 interface CacheEntry {
   data: FlightSearchResult;
@@ -161,6 +182,9 @@ export async function fetchFlightOptions(
       }
       if (resp?.ok === false) {
         // Validation errors (e.g. multi-airport not deployed yet) → try simpler codes
+        if (resp.code === PROVIDER_QUOTA_ERROR_CODE) {
+          throw new FlightSearchProviderError(resp.error || PROVIDER_QUOTA_ERROR_MESSAGE, PROVIDER_QUOTA_ERROR_CODE);
+        }
         lastError = new Error(resp.error || 'Flight search returned an error');
         continue;
       }
@@ -273,9 +297,14 @@ export async function searchFlightsForDestinations(
           searchDate: new Date().toISOString(),
           useMock: false,
           error: result.reason?.message || 'Search failed',
+          errorCode: isProviderQuotaError(result.reason) ? PROVIDER_QUOTA_ERROR_CODE : undefined,
         });
       }
     });
+
+    if (batchResults.some((result) => result.status === 'rejected' && isProviderQuotaError(result.reason))) {
+      break;
+    }
   }
 
   return results;
